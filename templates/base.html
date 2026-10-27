@@ -1,0 +1,15 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Smart RPA Builder{% endblock %}</title>
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+  <script src="{% static 'app.js' %}" defer></script>
+</head>
+<body>
+  <header><a href="{% url 'home' %}">Smart RPA Builder</a></header>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>

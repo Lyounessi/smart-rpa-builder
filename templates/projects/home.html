@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Build your workflow</h1>
+<p>The Django foundation is ready. Project editing and browser capture are coming next.</p>
+<section aria-live="polite">
+  <div id="platform-status">Check that the platform is responding.</div>
+  <button type="button" hx-get="{% url 'status' %}" hx-target="#platform-status" hx-swap="innerHTML">Check platform status</button>
+</section>
+{% endblock %}
