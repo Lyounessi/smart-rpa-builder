@@ -33,7 +33,7 @@ def resolve(page, definition):
     raise ValueError("Unsupported locator strategy")
 
 
-async def validate(page, definition):
+async def validate(page, definition, baseline=None):
     target = resolve(page, definition)
     count = await target.count()
     if count == 0:
@@ -42,4 +42,13 @@ async def validate(page, definition):
         return {"status": "ambiguous", "count": count, "message": f"Selector matches {count} elements. Refine or recapture it."}
     if not await target.is_visible():
         return {"status": "hidden", "count": 1, "message": "One match exists, but it is hidden."}
-    return {"status": "unique", "count": 1, "message": "Exactly one visible match."}
+    result = {"status": "unique", "count": 1, "message": "Exactly one visible match."}
+    if baseline:
+        from .quality import fingerprint
+        metadata = await target.evaluate('(el) => window.__smartRpa.metadata(el)')
+        matches = fingerprint(metadata) == baseline and any(baseline.get(key) for key in ('name', 'label'))
+        result.update(identity_matches=bool(matches), observed_id=metadata.get('attributes', {}).get('id', ''),
+                      document_id=await page.evaluate('() => window.__smartRpa.documentId'))
+        if not matches:
+            result.update(status='identity_mismatch', message='One visible match exists, but its semantic identity differs or cannot be verified. Review or recapture it.')
+    return result

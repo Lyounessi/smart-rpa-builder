@@ -91,6 +91,7 @@ def save_draft(draft_id, session, name, description):
         raise ValidationError("This step's application changed. Capture a new target for its current application.")
     element = CapturedElement(window=session.window, name=name, description=description,
         element_type=draft.metadata.get("tag", ""), semantic_metadata=draft.metadata, locator=draft.locator,
+        selector_quality=draft.selector_quality,
         validation_result=draft.validation_result, validated_at=draft.created_at,
         capture_url=draft.capture_url, coordinate_context=draft.coordinate_context)
     # Transfer file references: no additional screenshot copies or raw images are created.
@@ -104,12 +105,13 @@ def save_draft(draft_id, session, name, description):
     return element
 
 
-def persist_draft(session_id, metadata, locator, validation, capture_url, coordinates, viewport, crop, step_id=None):
+def persist_draft(session_id, metadata, locator, validation, capture_url, coordinates, viewport, crop, step_id=None, selector_quality=None):
     # A recapture replaces only the unsaved review, never the step's saved target.
     step_id = step_id or InspectionSession.objects.values_list('step_id', flat=True).get(pk=session_id)
     for old in CaptureDraft.objects.filter(step_id=step_id, status="review"):
         discard_draft(old)
     draft = CaptureDraft(session_id=session_id, step_id=step_id, metadata=metadata, locator=locator,
+        selector_quality=selector_quality or {},
         validation_result=validation, capture_url=capture_url, coordinate_context=coordinates)
     try:
         draft.highlighted_screenshot.save(f"{draft.pk}-viewport.png", ContentFile(viewport), save=False)

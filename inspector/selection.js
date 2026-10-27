@@ -37,15 +37,16 @@
     document.documentElement.append(host, box);
   };
   window.__smartRpa = {
+    documentId: Math.random().toString(36).slice(2) + Date.now().toString(36),
     select: () => setMode(true),
     cancel: () => setMode(false),
     message: (value) => setMode(false, value),
     highlight: (element) => draw(element),
     hideToolbar: () => { host.style.visibility = 'hidden'; },
     showToolbar: () => { host.style.visibility = 'visible'; },
-    metadata: () => {
-      if (!chosen || !chosen.isConnected) throw new Error('Selected element disappeared');
-      const el = chosen;
+    metadata: (target) => {
+      const el = target || chosen;
+      if (!el || !el.isConnected) throw new Error('Selected element disappeared');
       const tag = el.tagName.toLowerCase();
       if (['iframe','frame','canvas','object','embed','video'].includes(tag)) return {unsupported:true};
       const label = Array.from(el.labels || []).map(item => item.innerText.trim()).join(' ').slice(0,160);

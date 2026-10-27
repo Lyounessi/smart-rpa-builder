@@ -14,6 +14,7 @@ from django.utils import timezone
 from inspector.locators import resolve, safe_url, validate
 from inspector.models import CapturedElement, InspectionCommand, InspectionSession
 from inspector.services import finish_session, persist_draft
+from inspector.quality import assess_id, initial_quality, record_observation
 
 
 @sync_to_async
@@ -41,14 +42,16 @@ def next_command(session_id):
     command.status = "running"
     command.save(update_fields=['status', 'updated_at'])
     locator = command.element.locator if command.element_id else None
-    return {"id": command.pk, "operation": command.operation, "element_id": command.element_id, "locator": locator}
+    return {"id": command.pk, "operation": command.operation, "element_id": command.element_id, "locator": locator,
+            "session_id": command.session_id, "quality": command.element.selector_quality if command.element_id else {}}
 
 
 @sync_to_async
 def complete_command(command, result=None, failed=False):
     InspectionCommand.objects.filter(pk=command['id']).update(status='failed' if failed else 'done', result=result or {})
     if command.get('element_id') and result:
-        CapturedElement.objects.filter(pk=command['element_id']).update(validation_result=result, validated_at=timezone.now())
+        quality = record_observation(command.get('quality'), result, command['session_id'])
+        CapturedElement.objects.filter(pk=command['element_id']).update(validation_result=result, validated_at=timezone.now(), selector_quality=quality)
 
 
 def server_alive(url, instance):
@@ -69,6 +72,8 @@ async def choose_locator(page, metadata):
     if metadata['label']:
         candidates.append({'strategy':'label', 'value':metadata['label']})
     for attribute in ['id', 'name', 'placeholder', 'aria-label']:
+        if attribute == 'id' and assess_id(attrs.get('id'))['assessment'] == 'suspected_generated':
+            continue
         if attrs.get(attribute):
             # JSON string escaping is also valid for CSS quoted attribute strings.
             candidates.append({'strategy':'css', 'value':f"{metadata['tag']}[{attribute}={json.dumps(attrs[attribute])}]"})
@@ -111,7 +116,8 @@ async def capture(page, session_id, step_id=None):
     buffer = io.BytesIO()
     image.crop((x, y, right, bottom)).save(buffer, format='PNG')
     coordinates = {'bounding_box':bounds, 'viewport':{'width':image.width, 'height':image.height}, 'unit':'CSS pixels', 'origin':'viewport'}
-    await sync_to_async(persist_draft)(session_id, metadata, definition, result, safe_url(page.url), coordinates, viewport, buffer.getvalue(), step_id=step_id)
+    quality = initial_quality(metadata, definition, await page.evaluate('() => window.__smartRpa.documentId'), session_id)
+    await sync_to_async(persist_draft)(session_id, metadata, definition, result, safe_url(page.url), coordinates, viewport, buffer.getvalue(), step_id=step_id, selector_quality=quality)
 
 
 class Command(BaseCommand):
@@ -199,7 +205,7 @@ class Command(BaseCommand):
                             await update_session(session_id, status='browsing', message='Capture ready. Review and save below; the browser stays open.')
                         elif action == 'test':
                             await update_session(session_id, status='testing', message='Testing saved selector…')
-                            result = await validate(page, command['locator'])
+                            result = await validate(page, command['locator'], command['quality'].get('baseline'))
                             if result['status'] == 'unique':
                                 target = resolve(page, command['locator'])
                                 await target.scroll_into_view_if_needed()

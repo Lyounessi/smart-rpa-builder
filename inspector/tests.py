@@ -189,6 +189,12 @@ class BrowserCaptureTests(SimpleTestCase):
             self.assertEqual((await validate(page, {'strategy':'role', 'role':'button', 'name':'Duplicate'}))['status'], 'ambiguous')
             self.assertEqual((await validate(page, {'strategy':'label', 'value':'Absent'}))['status'], 'missing')
             self.assertEqual((await validate(page, {'strategy':'label', 'value':'Hidden'}))['status'], 'hidden')
+            from .quality import fingerprint
+            baseline = fingerprint(await page.evaluate('() => window.__smartRpa.metadata()'))
+            definition = {'strategy':'role', 'role':'button', 'name':'Save supplier'}
+            self.assertTrue((await validate(page, definition, baseline))['identity_matches'])
+            wrong = dict(baseline, tag='a')
+            self.assertEqual((await validate(page, definition, wrong))['status'], 'identity_mismatch')
             await page.evaluate('() => window.__smartRpa.select()')
             await page.locator('#supplier').click()
             with patch('inspector.management.commands.inspect_browser.persist_draft') as persist:
@@ -262,12 +268,14 @@ class BrowserLifecycleTests(LiveServerTestCase):
         with tempfile.TemporaryDirectory() as media, override_settings(MEDIA_ROOT=media):
             asyncio.run(self.capture_login_field())
             draft = CaptureDraft.objects.get(step=self.step, status='review')
+            self.assertEqual(draft.selector_quality['assessment'], 'unverified')
             response = self.client.post(reverse('inspector-review', args=[self.project.pk, self.step.pk, draft.pk]),
                                         {'name':'Username field', 'description':'Captured login textbox', 'action':'save'})
             self.assertEqual(response.status_code, 302)
             finish_session(self.session.pk)
             self.assertContains(self.client.get(reverse('step-inspector', args=[self.project.pk, self.step.pk])), 'Username field')
             element = self.step.element_references.get().element
+            self.assertEqual(element.selector_quality, draft.selector_quality)
             self.assertTrue(Path(element.highlighted_screenshot.path).exists())
             self.assertTrue(Path(element.element_screenshot.path).exists())
             asyncio.run(self.reopen_and_validate(element.locator))

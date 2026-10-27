@@ -17,6 +17,7 @@
 <section><h2>Capture review</h2>
 {% if draft %}
 <p>A draft is ready. Your saved target stays unchanged until you save this capture.</p>
+{% include "inspector/_quality.html" with quality=draft.selector_quality %}
 <a href="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'viewport' %}" target="_blank" rel="noopener"><img class="capture-image" src="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'viewport' %}" alt="Masked viewport with the selected element highlighted"></a>
 <img class="element-image" src="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'element' %}" alt="Masked selected element crop">
 <details><summary>Selector and capture details</summary><pre>{{ draft.locator }}</pre><p>{{ draft.validation_result.message }}</p><p>{{ draft.capture_url }}</p></details>
@@ -27,6 +28,7 @@
 <section><h2>Saved target</h2>
 {% for reference in references %}{% with element=reference.element %}
 <article><h3>{{ element.name }}</h3><p>{{ element.description }}</p>
+{% include "inspector/_quality.html" with quality=element.selector_quality %}
 {% if element.highlighted_screenshot %}<img class="capture-image" src="{% url 'inspector-screenshot' project.pk step.pk 'saved' element.pk 'viewport' %}" alt="Saved masked viewport with highlighted target">{% endif %}
 <details><summary>Saved selector</summary><pre>{{ element.locator }}</pre><p>Element ID: {{ element.pk }}</p><p>Capture page: {{ element.capture_url }}</p></details>
 <p>{{ element.validation_result.message }} {% if element.validated_at %}<small>Last tested {{ element.validated_at|date:"M j H:i:s" }}</small>{% endif %}</p>
