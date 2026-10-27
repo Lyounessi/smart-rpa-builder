@@ -7,7 +7,7 @@
 <div id="editor" aria-live="polite"></div>
 <div class="grid">
 {% for project in projects %}
-<article><h2><a href="{% url 'project-detail' project.pk %}">{{ project.name }}</a></h2><p>{{ project.description|default:"No description yet."|truncatewords:35 }}</p><small>Updated {{ project.updated_at|date:"M j, Y H:i" }}</small></article>
+<article><h2><a href="{% url 'project-detail' project.pk %}">{{ project.name }}</a></h2><p class="muted">{{ project.get_application_scope_display }}</p><p>{{ project.description|default:"No description yet."|truncatewords:35 }}</p><small>Updated {{ project.updated_at|date:"M j, Y H:i" }}</small></article>
 {% empty %}<article><h2>Start with a project</h2><p>Each project represents one workflow. Add your target website and describe the actions in order.</p></article>{% endfor %}
 </div>
 <details><summary>Platform status</summary><div id="platform-status" aria-live="polite"></div><button type="button" hx-get="{% url 'status' %}" hx-target="#platform-status">Check platform status</button></details>

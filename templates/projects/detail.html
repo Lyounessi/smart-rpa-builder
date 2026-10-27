@@ -3,6 +3,7 @@
 {% block content %}
 <a href="{% url 'home' %}">← All projects</a>
 <p class="eyebrow">Workflow project</p><h1>{{ project.name }}</h1>
+<p class="muted">Application setup: {{ project.get_application_scope_display }}{% if project.application_scope == "multiple" %} · Web only for now{% endif %}</p>
 <p>{{ project.description|linebreaksbr }}</p>
 <a href="{% url 'project-edit' project.pk %}" hx-get="{% url 'project-edit' project.pk %}" hx-target="#editor">Edit project</a>
 <section><h2>Target applications</h2><p>Starting URLs launch your application. Captured elements will retain their own capture URLs.</p>

@@ -31,6 +31,7 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 ## Workflow editor
 
 - One project represents one workflow, with a name and optional description.
+- Project creation and editing include an application setup: web application or multiple applications (web only for now). Desktop is visible but disabled and rejected server-side until desktop support is implemented. Existing projects default to web. This setup describes workflow intent; application windows remain separate reusable entities, and it does not impose a window-count limit.
 - Target applications store a name and HTTP(S) starting URL. Embedded URL credentials are rejected; do not put passwords or tokens in URLs.
 - Steps store a name, plain-language instruction, ordered position, and optional application reference. Navigation steps need no captured element.
 - Projects, applications, and steps can be edited. Changes persist in SQLite and are retrieved after restarting Django.

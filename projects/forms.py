@@ -5,10 +5,30 @@ from inspector.models import ApplicationWindow, CapturedElement
 from .models import Project, StepElementReference, WorkflowStep
 
 
+class ApplicationScopeSelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value == Project.ApplicationScope.DESKTOP:
+            option["attrs"]["disabled"] = True
+            option["label"] = "Desktop application — coming later"
+        elif value == Project.ApplicationScope.MULTIPLE:
+            option["label"] = "Multiple applications — web only for now"
+        return option
+
+
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ["name", "description"]
+        fields = ["name", "application_scope", "description"]
+        labels = {"application_scope": "Application setup"}
+        widgets = {"application_scope": ApplicationScopeSelect}
+        help_texts = {"application_scope": "The hackathon version supports web applications. Desktop and mixed web/desktop workflows are coming later."}
+
+    def clean_application_scope(self):
+        scope = self.cleaned_data["application_scope"]
+        if scope == Project.ApplicationScope.DESKTOP:
+            raise forms.ValidationError("Desktop projects are coming later. Choose web or multiple web applications.")
+        return scope
 
 
 class WindowForm(forms.ModelForm):

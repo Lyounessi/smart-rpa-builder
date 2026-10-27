@@ -41,7 +41,7 @@ class WorkflowEditorTests(TestCase):
         return self.client.post(reverse("step-create", args=[self.project.pk]), data)
 
     def test_end_to_end_editor_persists_and_reloads(self):
-        response = self.client.post(reverse("project-create"), {"name": "Invoice approval", "description": "Daily workflow"})
+        response = self.client.post(reverse("project-create"), {"name": "Invoice approval", "description": "Daily workflow", "application_scope": "web"})
         project = Project.objects.get(name="Invoice approval")
         self.assertRedirects(response, reverse("project-detail", args=[project.pk]))
         response = self.client.post(reverse("window-create", args=[project.pk]), {"name": "Invoices", "target_url": "https://example.com/invoices"})
@@ -118,7 +118,7 @@ class WorkflowEditorTests(TestCase):
         self.assertNotContains(response, "<!doctype")
         response = self.client.post(url, {"name": ""}, HTTP_HX_REQUEST="true")
         self.assertContains(response, "This field is required")
-        response = self.client.post(url, {"name": "HTMX project"}, HTTP_HX_REQUEST="true")
+        response = self.client.post(url, {"name": "HTMX project", "application_scope": "web"}, HTTP_HX_REQUEST="true")
         self.assertEqual(response.headers["HX-Redirect"], reverse("project-detail", args=[Project.objects.get(name="HTMX project").pk]))
 
     def test_url_rejects_credentials_and_non_web_schemes(self):
@@ -134,3 +134,21 @@ class WorkflowEditorTests(TestCase):
         self.assertEqual(self.client.get(url).status_code, 405)
         self.assertEqual(Client(enforce_csrf_checks=True).post(url, {"direction": "up"}).status_code, 403)
         self.assertEqual(self.client.post(url, {"direction": "invalid"}).status_code, 400)
+
+    def test_project_application_setup_is_saved_and_editable(self):
+        response = self.client.post(reverse("project-create"), {"name": "Cross-site workflow", "application_scope": "multiple"})
+        project = Project.objects.get(name="Cross-site workflow")
+        self.assertEqual(project.application_scope, "multiple")
+        self.assertRedirects(response, reverse("project-detail", args=[project.pk]))
+        self.assertContains(self.client.get(reverse("project-detail", args=[project.pk])), "Web only for now")
+        self.client.post(reverse("project-edit", args=[project.pk]), {"name": project.name, "application_scope": "web"})
+        project.refresh_from_db()
+        self.assertEqual(project.application_scope, "web")
+
+    def test_desktop_setup_is_disabled_and_rejected_on_server(self):
+        response = self.client.get(reverse("project-create"))
+        self.assertContains(response, '<option value="desktop" disabled>')
+        self.assertContains(response, "Multiple applications — web only for now")
+        response = self.client.post(reverse("project-create"), {"name": "Desktop test", "application_scope": "desktop"})
+        self.assertContains(response, "Desktop projects are coming later")
+        self.assertFalse(Project.objects.filter(name="Desktop test").exists())

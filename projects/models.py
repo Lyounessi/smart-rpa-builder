@@ -11,8 +11,14 @@ class Timestamped(models.Model):
 
 
 class Project(Timestamped):
+    class ApplicationScope(models.TextChoices):
+        WEB = "web", "Web application"
+        DESKTOP = "desktop", "Desktop application"
+        MULTIPLE = "multiple", "Multiple applications"
+
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
+    application_scope = models.CharField(max_length=10, choices=ApplicationScope.choices, default=ApplicationScope.WEB)
 
     def __str__(self):
         return self.name
