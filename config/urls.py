@@ -13,6 +13,7 @@ urlpatterns = [
     path("projects/<int:project_id>/applications/new/", views.window_edit, name="window-create"),
     path("projects/<int:project_id>/applications/<int:window_id>/edit/", views.window_edit, name="window-edit"),
     path("projects/<int:project_id>/steps/new/", views.step_edit, name="step-create"),
+    path("projects/<int:project_id>/steps/target-options/", views.step_target_options, name="step-target-options"),
     path("projects/<int:project_id>/steps/<int:step_id>/edit/", views.step_edit, name="step-edit"),
     path("projects/<int:project_id>/steps/<int:step_id>/move/", views.step_move, name="step-move"),
     path("admin/", admin.site.urls),

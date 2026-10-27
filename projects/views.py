@@ -71,6 +71,13 @@ def step_edit(request, project_id, step_id=None):
     return form_response(request, form, "Edit step" if step else "Add workflow step", project)
 
 
+@require_GET
+def step_target_options(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    form = StepForm(request.GET, project=project)
+    return render(request, "projects/_target_options.html", {"elements": form.fields["target"].queryset})
+
+
 @require_POST
 def step_move(request, project_id, step_id):
     project = get_object_or_404(Project, pk=project_id)

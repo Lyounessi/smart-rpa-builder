@@ -1,5 +1,6 @@
 from django import forms
 from django.db import transaction
+from django.urls import reverse
 
 from inspector.models import ApplicationWindow, CapturedElement
 from .models import Project, StepElementReference, WorkflowStep
@@ -59,7 +60,22 @@ class StepForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.instance.project = project
         self.fields["window"].queryset = project.windows.filter(application_type="web")
-        self.fields["target"].queryset = CapturedElement.objects.filter(window__project=project)
+        self.fields["window"].widget.attrs.update({
+            "hx-get": reverse("step-target-options", args=[project.pk]),
+            "hx-trigger": "change",
+            "hx-target": "#id_target",
+            "hx-swap": "innerHTML",
+            "hx-include": "this",
+            "hx-sync": "this:replace",
+        })
+        window_value = self.data.get(self.add_prefix("window")) if self.is_bound else self.initial.get("window")
+        try:
+            window = self.fields["window"].clean(window_value)
+        except forms.ValidationError:
+            window = None
+        self.fields["target"].queryset = CapturedElement.objects.filter(window=window, window__project=project).order_by("name", "pk") if window else CapturedElement.objects.none()
+        if not window:
+            self.fields["target"].empty_label = "Choose a target application first"
         if self.instance.pk:
             reference = self.instance.element_references.first()
             self.initial["target"] = reference.element_id if reference else None
@@ -69,8 +85,6 @@ class StepForm(forms.ModelForm):
         target, window = data.get("target"), data.get("window")
         if target and window and target.window_id != window.pk:
             self.add_error("target", "Choose an element from the selected application.")
-        if target and not window:
-            data["window"] = target.window
         return data
 
     @transaction.atomic

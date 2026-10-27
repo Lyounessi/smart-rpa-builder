@@ -58,8 +58,8 @@ class WorkflowEditorTests(TestCase):
         self.assertEqual(self.add_step(window="").status_code, 302)
         self.assertIsNone(self.project.steps.get().window)
 
-    def test_target_is_saved_and_infers_window(self):
-        self.assertEqual(self.add_step(window="", target=str(self.element.pk)).status_code, 302)
+    def test_target_is_saved_for_selected_window(self):
+        self.assertEqual(self.add_step(target=str(self.element.pk)).status_code, 302)
         step = self.project.steps.get()
         self.assertEqual(step.window, self.window)
         self.assertEqual(step.element_references.get().element, self.element)
@@ -74,7 +74,35 @@ class WorkflowEditorTests(TestCase):
     def test_rejects_target_from_different_window_in_same_project(self):
         another = ApplicationWindow.objects.create(project=self.project, name="Reports", target_url="https://example.com/reports")
         response = self.add_step(window=another.pk, target=str(self.element.pk))
-        self.assertContains(response, "Choose an element from the selected application")
+        self.assertContains(response, "Select a valid choice")
+        self.assertFalse(self.project.steps.exists())
+
+    def test_target_choices_follow_selected_application(self):
+        another = ApplicationWindow.objects.create(project=self.project, name="Reports", target_url="https://example.com/reports")
+        other_element = CapturedElement.objects.create(window=another, name="Report field", locator={"strategy":"label", "value":"Report"})
+        url = reverse("step-target-options", args=[self.project.pk])
+        response = self.client.get(url, {"window": self.window.pk})
+        self.assertContains(response, str(self.element.pk))
+        self.assertNotContains(response, str(other_element.pk))
+        self.assertNotContains(response, str(self.foreign_element.pk))
+        for invalid in ["", "invalid", self.other_window.pk]:
+            response = self.client.get(url, {"window": invalid})
+            self.assertEqual(response.status_code, 200)
+            self.assertNotContains(response, str(self.element.pk))
+            self.assertNotContains(response, str(self.foreign_element.pk))
+        self.assertContains(self.client.get(reverse("step-create", args=[self.project.pk])), "Choose a target application first")
+
+    def test_edit_target_choices_are_filtered_before_any_change(self):
+        self.add_step(target=str(self.element.pk))
+        step = self.project.steps.get()
+        response = self.client.get(reverse("step-edit", args=[self.project.pk, step.pk]))
+        self.assertContains(response, str(self.element.pk))
+        self.assertNotContains(response, str(self.foreign_element.pk))
+        self.assertContains(response, 'hx-target="#id_target"')
+
+    def test_target_without_application_is_rejected(self):
+        response = self.add_step(window="", target=str(self.element.pk))
+        self.assertContains(response, "Select a valid choice")
         self.assertFalse(self.project.steps.exists())
 
     def test_model_rejects_cross_project_reference(self):
