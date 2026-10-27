@@ -3,7 +3,7 @@ from django.db import transaction
 from django.urls import reverse
 
 from inspector.models import ApplicationWindow, CapturedElement
-from .models import Project, StepElementReference, WorkflowStep
+from .models import Project, ProjectInput, StepElementReference, WorkflowStep
 
 
 class ApplicationScopeSelect(forms.Select):
@@ -96,3 +96,28 @@ class StepForm(forms.ModelForm):
         if self.cleaned_data.get("target"):
             StepElementReference.objects.create(step=step, element=self.cleaned_data["target"])
         return step
+
+
+class ProjectInputForm(forms.ModelForm):
+    class Meta:
+        model = ProjectInput
+        fields = ['key', 'description', 'data_type', 'required']
+        help_texts = {'key':'For example: supplier_name or document_type. Use this key in step instructions and file headers.'}
+
+    def __init__(self, *args, project, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.instance.project = project
+
+    def clean_key(self):
+        key = self.cleaned_data['key']
+        if self.instance.project.inputs.filter(key=key).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError('This project already has an input with this key.')
+        if not self.instance.pk and self.instance.project.inputs.count() >= 30:
+            raise forms.ValidationError('This MVP supports at most 30 inputs per project.')
+        return key
+
+
+class DatasetUploadForm(forms.Form):
+    name = forms.CharField(max_length=200, label='Dataset name')
+    file = forms.FileField(label='CSV or Excel file', widget=forms.ClearableFileInput(attrs={'accept':'.csv,.xlsx'}),
+                           help_text='UTF-8 CSV or one-sheet XLSX. Maximum 2 MB, 1,000 rows, 30 columns. No formulas.')

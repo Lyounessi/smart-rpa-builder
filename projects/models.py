@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
 from django.db import models
 
 
@@ -60,3 +61,47 @@ class StepElementReference(Timestamped):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+
+
+class ProjectInput(Timestamped):
+    class DataType(models.TextChoices):
+        TEXT = 'text', 'Text'
+        NUMBER = 'number', 'Number'
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='inputs')
+    key = models.CharField(max_length=64, validators=[RegexValidator(r'^[a-z][a-z0-9_]*$', 'Use lowercase letters, numbers and underscores; start with a letter.')])
+    description = models.CharField(max_length=300, blank=True)
+    data_type = models.CharField(max_length=10, choices=DataType.choices, default=DataType.TEXT)
+    required = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['pk']
+        constraints = [models.UniqueConstraint(fields=['project', 'key'], name='unique_project_input_key')]
+
+    def __str__(self):
+        return self.key
+
+
+class Dataset(Timestamped):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='datasets')
+    name = models.CharField(max_length=200)
+    source_name = models.CharField(max_length=255)
+    schema_snapshot = models.JSONField()
+    headers = models.JSONField()
+    status = models.CharField(max_length=10, choices=[('preview', 'Preview'), ('ready', 'Ready')], default='preview')
+    row_count = models.PositiveIntegerField(default=0)
+    invalid_row_count = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return self.name
+
+
+class DatasetRow(models.Model):
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='rows')
+    row_number = models.PositiveIntegerField()
+    values = models.JSONField()
+    errors = models.JSONField(default=list)
+
+    class Meta:
+        ordering = ['row_number']
+        constraints = [models.UniqueConstraint(fields=['dataset', 'row_number'], name='unique_dataset_row')]

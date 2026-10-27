@@ -2,8 +2,14 @@ from django.contrib import admin
 from django.urls import include, path
 
 from projects import views
+from projects import input_views
 
 urlpatterns = [
+    path('projects/<int:project_id>/inputs/new/', input_views.input_edit, name='input-create'),
+    path('projects/<int:project_id>/inputs/<int:input_id>/edit/', input_views.input_edit, name='input-edit'),
+    path('projects/<int:project_id>/datasets/upload/', input_views.dataset_upload, name='dataset-upload'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/', input_views.dataset_detail, name='dataset-detail'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/confirm/', input_views.dataset_confirm, name='dataset-confirm'),
     path("inspector/", include("inspector.urls")),
     path("", views.home, name="home"),
     path("status/", views.status, name="status"),
