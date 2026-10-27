@@ -5,11 +5,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Smart RPA Builder{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'app.css' %}">
   <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
   <script src="{% static 'app.js' %}" defer></script>
 </head>
 <body>
-  <header><a href="{% url 'home' %}">Smart RPA Builder</a></header>
+  <header><a href="{% url 'home' %}">Smart RPA Builder</a><span>Powered by Muse · Local workspace</span></header>
   <main>{% block content %}{% endblock %}</main>
+  <script>document.addEventListener('htmx:responseError', function () { alert('The request failed. Please reload and try again.'); });</script>
 </body>
 </html>

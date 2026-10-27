@@ -1,0 +1,6 @@
+<section class="editor"><h2>{{ title }}</h2>
+<form method="post" action="{{ request.path }}" hx-post="{{ request.path }}" hx-target="closest .editor" hx-swap="outerHTML">
+{% csrf_token %}{{ form.as_p }}
+<button type="submit">Save</button>
+<a class="cancel" href="{% if project %}{% url 'project-detail' project.pk %}{% else %}{% url 'home' %}{% endif %}">Cancel</a>
+</form></section>

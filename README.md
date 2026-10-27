@@ -6,7 +6,7 @@ Users will define workflows through screenshots, captured interface elements, an
 
 The planned platform will support inspecting web and Windows desktop applications, running robots, reviewing execution logs, and refining workflows.
 
-> **Status:** Django foundation implemented. Workflow editing, browser inspection, Muse integration, and robot execution are still planned.
+> **Status:** Project, target-application, and ordered workflow editing implemented. Browser inspection, Muse integration, and robot execution are still planned.
 
 ## Local setup (Windows PowerShell)
 
@@ -26,7 +26,20 @@ Replace `DJANGO_SECRET_KEY` in `.env` with the generated value, then run:
 .\.venv\Scripts\python.exe manage.py runserver 127.0.0.1:8000
 ```
 
-Open http://127.0.0.1:8000 and use **Check platform status** to exercise the HTMX HTML fragment endpoint. This is a foundation page, not yet the workflow editor.
+Open http://127.0.0.1:8000, create a project, add a target application with its starting URL, and add workflow steps. Forms load inline with HTMX and also work as regular pages without JavaScript. Use the up/down buttons to reorder steps.
+
+## Workflow editor
+
+- One project represents one workflow, with a name and optional description.
+- Target applications store a name and HTTP(S) starting URL. Embedded URL credentials are rejected; do not put passwords or tokens in URLs.
+- Steps store a name, plain-language instruction, ordered position, and optional application reference. Navigation steps need no captured element.
+- Projects, applications, and steps can be edited. Changes persist in SQLite and are retrieved after restarting Django.
+- Captured-element storage is prepared with UUIDs, versioned structured locators, semantic metadata, capture URL, frame and coordinate context, validation details, and screenshot file references. Browser capture and screenshot creation are not implemented yet.
+- Steps link to elements through a separate reference table, allowing element reuse and multiple references later. The current editor supports zero or one target and restricts choices to the current project and selected application.
+- A capture URL describes where an element was captured; the application starting URL describes where to launch. Neither automatically creates a navigation instruction.
+- Reordering uses transactional position swaps with a per-project uniqueness constraint. This is a local single-user editor; simultaneous multi-user editing is outside the MVP scope.
+- Deletion, desktop applications, browser sessions, locator testing, and screenshot review are not yet available. The database reserves the desktop application type; the UI creates web applications only.
+- The local editor has no sign-in requirement in this milestone. Django admin uses its normal authentication. Keep the server bound to loopback.
 
 Optional Django admin account:
 
