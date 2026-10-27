@@ -53,12 +53,17 @@ class StepForm(forms.ModelForm):
 
     class Meta:
         model = WorkflowStep
-        fields = ["name", "instruction", "window"]
-        labels = {"window": "Target application"}
+        fields = ["name", "instruction", "window", "action", "input_column"]
+        labels = {"window": "Target application", "input_column": "Input column"}
+        help_texts = {"input_column": "Use this column from each dataset row. Add project inputs first if the list is empty."}
 
     def __init__(self, *args, project, **kwargs):
         super().__init__(*args, **kwargs)
         self.instance.project = project
+        self.fields['action'].required = True
+        self.fields['input_column'].queryset = project.inputs.all()
+        self.fields['action'].widget.attrs['data-step-action'] = ''
+        self.fields['input_column'].widget.attrs['data-step-input'] = ''
         self.fields["window"].queryset = project.windows.filter(application_type="web")
         self.fields["window"].widget.attrs.update({
             "hx-get": reverse("step-target-options", args=[project.pk]),
@@ -82,6 +87,8 @@ class StepForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
+        if data.get('action') == WorkflowStep.Action.CLICK:
+            data['input_column'] = None
         target, window = data.get("target"), data.get("window")
         if target and window and target.window_id != window.pk:
             self.add_error("target", "Choose an element from the selected application.")

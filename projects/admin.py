@@ -28,8 +28,8 @@ class ProjectAdmin(ReadOnlyAdmin):
 
 @admin.register(WorkflowStep)
 class WorkflowStepAdmin(ReadOnlyAdmin):
-    list_display = ('name', 'project', 'position', 'window', 'updated_at')
-    list_select_related = ('project', 'window')
+    list_display = ('name', 'project', 'position', 'window', 'action', 'input_column', 'updated_at')
+    list_select_related = ('project', 'window', 'input_column')
     search_fields = ('name', 'instruction', 'project__name')
     list_filter = ('project',)
 

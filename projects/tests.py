@@ -36,7 +36,7 @@ class WorkflowEditorTests(TestCase):
         self.foreign_element = CapturedElement.objects.create(window=self.other_window, name="Foreign element", locator={"strategy": "label", "value": "Name"})
 
     def add_step(self, **overrides):
-        data = {"name": "Enter supplier", "instruction": "Fill using supplier_name", "window": self.window.pk, "target": ""}
+        data = {"action": "click", "name": "Enter supplier", "instruction": "Fill using supplier_name", "window": self.window.pk, "target": ""}
         data.update(overrides)
         return self.client.post(reverse("step-create", args=[self.project.pk]), data)
 
@@ -47,7 +47,7 @@ class WorkflowEditorTests(TestCase):
         response = self.client.post(reverse("window-create", args=[project.pk]), {"name": "Invoices", "target_url": "https://example.com/invoices"})
         self.assertEqual(response.status_code, 302)
         window = project.windows.get()
-        self.client.post(reverse("step-create", args=[project.pk]), {"name": "Open invoices", "instruction": "Navigate to invoices", "window": window.pk})
+        self.client.post(reverse("step-create", args=[project.pk]), {"action": "click", "name": "Open invoices", "instruction": "Navigate to invoices", "window": window.pk})
         response = self.client.get(reverse("project-detail", args=[project.pk]))
         self.assertContains(response, "Open invoices")
         self.assertContains(response, "https://example.com/invoices")
@@ -133,7 +133,7 @@ class WorkflowEditorTests(TestCase):
         step = self.project.steps.get()
         url = reverse("step-edit", args=[self.project.pk, step.pk])
         self.assertContains(self.client.get(url), str(self.element.pk))
-        response = self.client.post(url, {"name": "Navigate", "instruction": "Open supplier page", "window": self.window.pk, "target": ""})
+        response = self.client.post(url, {"action": "click", "name": "Navigate", "instruction": "Open supplier page", "window": self.window.pk, "target": ""})
         self.assertEqual(response.status_code, 302)
         self.assertFalse(step.element_references.exists())
         step.refresh_from_db()
@@ -180,3 +180,62 @@ class WorkflowEditorTests(TestCase):
         response = self.client.post(reverse("project-create"), {"name": "Desktop test", "application_scope": "desktop"})
         self.assertContains(response, "Desktop projects are coming later")
         self.assertFalse(Project.objects.filter(name="Desktop test").exists())
+
+
+class StepInputMappingTests(TestCase):
+    def setUp(self):
+        from .models import ProjectInput
+        self.project = Project.objects.create(name='Input mapping')
+        self.column = ProjectInput.objects.create(project=self.project, key='name')
+        other = Project.objects.create(name='Other')
+        self.foreign = ProjectInput.objects.create(project=other, key='private_name')
+        self.url = reverse('step-create', args=[self.project.pk])
+
+    def payload(self, **overrides):
+        data = {'name': 'Enter name', 'instruction': 'Enter the current row name',
+                'action': 'fill', 'input_column': self.column.pk}
+        data.update(overrides)
+        return data
+
+    def test_fill_and_select_persist_mapping_and_edit(self):
+        for action in ['fill', 'select']:
+            response = self.client.post(self.url, self.payload(action=action))
+            self.assertEqual(response.status_code, 302)
+        step = self.project.steps.first()
+        self.assertEqual(step.input_column, self.column)
+        edit = reverse('step-edit', args=[self.project.pk, step.pk])
+        response = self.client.get(edit)
+        self.assertContains(response, f'value="{self.column.pk}" selected')
+        self.assertNotContains(response, 'private_name')
+        self.assertContains(self.client.get(reverse('project-detail', args=[self.project.pk])), 'Input column:')
+        self.assertEqual(self.client.post(edit, self.payload(action='click')).status_code, 302)
+        step.refresh_from_db()
+        self.assertIsNone(step.input_column)
+
+    def test_missing_or_foreign_input_and_invalid_action_rejected(self):
+        for overrides in [{'input_column': ''}, {'input_column': self.foreign.pk},
+                          {'action': 'select', 'input_column': ''}, {'action': 'invalid'}, {'action': ''}]:
+            response = self.client.post(self.url, self.payload(**overrides), HTTP_HX_REQUEST='true')
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn('HX-Redirect', response.headers)
+            self.assertFalse(self.project.steps.exists())
+
+    def test_model_validation_and_input_deletion_protection(self):
+        from django.db.models.deletion import ProtectedError
+        step = WorkflowStep(project=self.project, position=1, name='Fill', instruction='Fill', action='fill')
+        with self.assertRaises(ValidationError):
+            step.full_clean()
+        step.input_column = self.foreign
+        with self.assertRaises(ValidationError):
+            step.full_clean()
+        step.input_column = self.column
+        step.full_clean()
+        step.save()
+        with self.assertRaises(ProtectedError):
+            self.column.delete()
+
+    def test_legacy_step_requires_explicit_action_on_edit(self):
+        step = WorkflowStep.objects.create(project=self.project, position=1, name='Legacy', instruction='Existing instruction')
+        self.assertEqual(step.action, '')
+        response = self.client.get(reverse('project-detail', args=[self.project.pk]))
+        self.assertContains(response, 'Choose an action')

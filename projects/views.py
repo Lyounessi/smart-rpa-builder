@@ -44,7 +44,7 @@ def project_edit(request, project_id=None):
 @require_GET
 def project_detail(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
-    steps = project.steps.select_related("window").prefetch_related("element_references__element")
+    steps = project.steps.select_related("window", "input_column").prefetch_related("element_references__element")
     return render(request, "projects/detail.html", {"project": project, "steps": steps})
 
 
@@ -87,5 +87,5 @@ def step_move(request, project_id, step_id):
         return HttpResponseBadRequest("Choose up or down.")
     move_step(step, direction)
     if request.headers.get("HX-Request") == "true":
-        return render(request, "projects/_steps.html", {"project": project, "steps": project.steps.select_related("window").prefetch_related("element_references__element")})
+        return render(request, "projects/_steps.html", {"project": project, "steps": project.steps.select_related("window", "input_column").prefetch_related("element_references__element")})
     return successful_save(request, project)

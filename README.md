@@ -130,6 +130,12 @@ Remove-Item Env:RUN_BROWSER_TESTS
 
 ## Hackathon Contributions
 
+### Step input mappings
+
+In the step editor, choose **Click**, **Fill**, or **Select option**. Fill and Select option require an **Input column** from the current project's process inputs (for example `name`). This stores a reference to the input definition, so the future runner can use that column's value from each dataset row. Click clears the input mapping. Captured targets remain optional while drafting a step.
+
+Existing steps retain their instructions and targets and show **Choose an action** until edited. Referenced input definitions cannot be deleted. Actions and mappings are visible in the workflow and Django admin; robot execution and Muse integration remain future work.
+
 This project is being built during the hackathon, from October 26 to November 4, 2026. Implemented features and setup instructions will be added as development progresses.
 
 ## License

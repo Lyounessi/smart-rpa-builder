@@ -26,11 +26,18 @@ class Project(Timestamped):
 
 
 class WorkflowStep(Timestamped):
+    class Action(models.TextChoices):
+        CLICK = 'click', 'Click'
+        FILL = 'fill', 'Fill'
+        SELECT = 'select', 'Select option'
+
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="steps")
     window = models.ForeignKey("inspector.ApplicationWindow", null=True, blank=True, on_delete=models.PROTECT, related_name="steps")
     position = models.PositiveIntegerField()
     name = models.CharField(max_length=200)
     instruction = models.TextField()
+    action = models.CharField(max_length=10, choices=Action.choices, blank=True, default='')
+    input_column = models.ForeignKey('ProjectInput', null=True, blank=True, on_delete=models.PROTECT, related_name='steps')
 
     class Meta:
         ordering = ["position", "pk"]
@@ -39,6 +46,12 @@ class WorkflowStep(Timestamped):
     def clean(self):
         if self.window_id and self.window.project_id != self.project_id:
             raise ValidationError({"window": "Choose an application from this project."})
+        if self.input_column_id and self.input_column.project_id != self.project_id:
+            raise ValidationError({'input_column': 'Choose an input from this project.'})
+        if self.action in {self.Action.FILL, self.Action.SELECT} and not self.input_column_id:
+            raise ValidationError({'input_column': 'Choose the input column whose value this step will use.'})
+        if self.input_column_id and self.action not in {self.Action.FILL, self.Action.SELECT}:
+            raise ValidationError({'input_column': 'Only Fill and Select option steps use an input column.'})
 
     def __str__(self):
         return self.name
