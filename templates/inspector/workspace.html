@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Inspect {{ step.name }} · Smart RPA Builder{% endblock %}
+{% block content %}
+<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a>
+<h1>{{ step.name }}</h1><p>{{ step.instruction|linebreaksbr }}</p>
+<p>Application: {{ step.window.name|default:"Choose an application by editing this step" }}</p>
+<aside>Screenshots mask editable fields and embedded surfaces. Sensitive text elsewhere on the page may still appear. Review both images before saving. Capture URLs omit query strings and fragments; page paths and labels can still contain sensitive information.</aside>
+{% include "inspector/_workspace.html" %}
+{% endblock %}

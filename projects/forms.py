@@ -48,7 +48,7 @@ class WindowForm(forms.ModelForm):
 
 
 class StepForm(forms.ModelForm):
-    target = forms.ModelChoiceField(queryset=CapturedElement.objects.none(), required=False, help_text="Optional. Browser capture will be added in the next milestone.")
+    target = forms.ModelChoiceField(queryset=CapturedElement.objects.none(), required=False, help_text="Optional. Save the step, then use Capture / test target to inspect the browser.")
 
     class Meta:
         model = WorkflowStep

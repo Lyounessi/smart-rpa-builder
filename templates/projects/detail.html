@@ -13,5 +13,5 @@
 {% include "projects/_steps.html" %}
 <a class="button" href="{% url 'step-create' project.pk %}" hx-get="{% url 'step-create' project.pk %}" hx-target="#editor">Add step</a></section>
 <div id="editor" aria-live="polite"></div>
-<aside>Browser capture is coming next. You can save and reorder your workflow now.</aside>
+<aside>Save a step with its target application, then use Capture / test target to inspect its web page.</aside>
 {% endblock %}

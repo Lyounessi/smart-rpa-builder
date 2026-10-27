@@ -1,9 +1,10 @@
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 
 from projects import views
 
 urlpatterns = [
+    path("inspector/", include("inspector.urls")),
     path("", views.home, name="home"),
     path("status/", views.status, name="status"),
     path("projects/new/", views.project_edit, name="project-create"),

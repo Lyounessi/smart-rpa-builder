@@ -1,0 +1,37 @@
+<div id="inspector-workspace">
+{% if error %}<p class="errorlist" role="alert">{{ error }}</p>{% endif %}
+<section><h2>Inspection browser</h2>
+{% if other_session %}<p>A browser is open for another step. <a href="{% url 'step-inspector' other_session.project_id other_session.step_id %}">Open its controls</a>. Opening this step will reuse that browser if it targets the same application.</p>{% endif %}
+{% if session %}<p><strong>{{ session.status|capfirst }}</strong> · {{ session.message }}</p>{% endif %}
+{% if session.active_slot %}
+<form method="post" action="{% url 'inspector-command' project.pk step.pk session.pk %}" hx-post="{% url 'inspector-command' project.pk step.pk session.pk %}" hx-target="#inspector-workspace" hx-swap="outerHTML">{% csrf_token %}
+<button name="operation" value="select" {% if not can_select %}disabled{% endif %}>Inspect element</button>
+<button name="operation" value="cancel" class="secondary">Cancel selection</button>
+<button name="operation" value="stop" class="secondary">Stop inspector</button>
+</form>
+{% else %}
+<form method="post" action="{% url 'inspector-launch' project.pk step.pk %}">{% csrf_token %}<button {% if not step.window_id %}disabled{% endif %}>Open inspection browser</button></form>
+{% endif %}
+<p class="muted">Navigate or log in manually. Use the toolbar inside the browser to select an element. Stop closes the inspection browser. Frames, new tabs, canvas, and closed shadow roots are outside this MVP.</p>
+</section>
+<section><h2>Capture review</h2>
+{% if draft %}
+<p>A draft is ready. Your saved target stays unchanged until you save this capture.</p>
+<a href="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'viewport' %}" target="_blank" rel="noopener"><img class="capture-image" src="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'viewport' %}" alt="Masked viewport with the selected element highlighted"></a>
+<img class="element-image" src="{% url 'inspector-screenshot' project.pk step.pk 'draft' draft.pk 'element' %}" alt="Masked selected element crop">
+<details><summary>Selector and capture details</summary><pre>{{ draft.locator }}</pre><p>{{ draft.validation_result.message }}</p><p>{{ draft.capture_url }}</p></details>
+<form id="review-{{ draft.pk }}" hx-preserve method="post" action="{% url 'inspector-review' project.pk step.pk draft.pk %}">{% csrf_token %}{{ review_form.as_p }}<button name="action" value="save">Save target to step</button><button class="secondary" name="action" value="discard" formnovalidate>Discard capture</button></form>
+<p class="muted">To recapture, select another element in the open browser. This replaces only the unsaved draft.</p>
+{% else %}<p>No unsaved capture. Select an element in the inspection browser.</p>{% endif %}
+</section>
+<section><h2>Saved target</h2>
+{% for reference in references %}{% with element=reference.element %}
+<article><h3>{{ element.name }}</h3><p>{{ element.description }}</p>
+{% if element.highlighted_screenshot %}<img class="capture-image" src="{% url 'inspector-screenshot' project.pk step.pk 'saved' element.pk 'viewport' %}" alt="Saved masked viewport with highlighted target">{% endif %}
+<details><summary>Saved selector</summary><pre>{{ element.locator }}</pre><p>Element ID: {{ element.pk }}</p><p>Capture page: {{ element.capture_url }}</p></details>
+<p>{{ element.validation_result.message }} {% if element.validated_at %}<small>Last tested {{ element.validated_at|date:"M j H:i:s" }}</small>{% endif %}</p>
+{% if session.active_slot %}<form method="post" action="{% url 'inspector-command' project.pk step.pk session.pk %}" hx-post="{% url 'inspector-command' project.pk step.pk session.pk %}" hx-target="#inspector-workspace" hx-swap="outerHTML">{% csrf_token %}<input type="hidden" name="element" value="{{ element.pk }}"><button name="operation" value="test" {% if not can_select %}disabled{% endif %}>Test saved locator</button></form>{% else %}<p>Open the inspection browser and navigate to the target page to test this selector.</p>{% endif %}
+</article>{% endwith %}{% empty %}<p>This step has no saved target.</p>{% endfor %}
+</section>
+{% if session.active_slot %}<div hx-get="{% url 'step-inspector' project.pk step.pk %}" hx-trigger="every 2s [!document.querySelector('#inspector-workspace input:focus, #inspector-workspace textarea:focus, #inspector-workspace select:focus')]" hx-target="#inspector-workspace" hx-swap="outerHTML"></div>{% endif %}
+</div>

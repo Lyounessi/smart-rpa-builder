@@ -2,7 +2,8 @@
 {% for step in steps %}
 <article class="step"><div><span class="eyebrow">Step {{ step.position }}</span><h3>{{ step.name }}</h3><p>{{ step.instruction|linebreaksbr }}</p><p class="muted">Application: {{ step.window.name|default:"Not specified" }}</p>
 {% for ref in step.element_references.all %}<p>Target: {{ ref.element.name }}</p>{% empty %}<p class="muted">No captured target</p>{% endfor %}
-<a href="{% url 'step-edit' project.pk step.pk %}" hx-get="{% url 'step-edit' project.pk step.pk %}" hx-target="#editor">Edit step</a></div>
+<a href="{% url 'step-edit' project.pk step.pk %}" hx-get="{% url 'step-edit' project.pk step.pk %}" hx-target="#editor">Edit step</a>
+<a class="button secondary" href="{% url 'step-inspector' project.pk step.pk %}">Capture / test target</a></div>
 <form method="post" action="{% url 'step-move' project.pk step.pk %}" hx-post="{% url 'step-move' project.pk step.pk %}" hx-target="#steps" hx-swap="outerHTML">{% csrf_token %}
 <button class="secondary" name="direction" value="up" {% if forloop.first %}disabled{% endif %} aria-label="Move {{ step.name }} up">↑ Up</button>
 <button class="secondary" name="direction" value="down" {% if forloop.last %}disabled{% endif %} aria-label="Move {{ step.name }} down">↓ Down</button></form></article>
