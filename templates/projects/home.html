@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<p class="eyebrow">Your workspace</p>
+<h1>Build your next workflow</h1>
+<p>Define the steps, connect the target applications, and prepare for element capture.</p>
+<a class="button" href="{% url 'project-create' %}" hx-get="{% url 'project-create' %}" hx-target="#editor">Create project</a>
+<div id="editor" aria-live="polite"></div>
+<div class="grid">
+{% for project in projects %}
+<article><h2><a href="{% url 'project-detail' project.pk %}">{{ project.name }}</a></h2><p class="muted">{{ project.get_application_scope_display }}</p><p>{{ project.description|default:"No description yet."|truncatewords:35 }}</p><small>Updated {{ project.updated_at|date:"M j, Y H:i" }}</small></article>
+{% empty %}<article><h2>Start with a project</h2><p>Each project represents one workflow. Add your target website and describe the actions in order.</p></article>{% endfor %}
+</div>
+<details><summary>Platform status</summary><div id="platform-status" aria-live="polite"></div><button type="button" hx-get="{% url 'status' %}" hx-target="#platform-status">Check platform status</button></details>
+{% endblock %}

@@ -1,0 +1,4 @@
+<aside><strong>Selector stability: {{ quality.assessment|default:"unverified" }}</strong>
+<p>{{ quality.message|default:"Recapture this legacy target to establish stability evidence." }}</p>
+{% if quality.id %}<p>ID: {{ quality.id.assessment }} — {{ quality.id.reason }}</p>{% endif %}
+<p>Testing does not reload the page. Reload or reopen manually when safe, then test the saved locator. No selector is guaranteed permanently stable.</p></aside>

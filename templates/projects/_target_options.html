@@ -1,0 +1,2 @@
+<option value="">No target selected</option>
+{% for element in elements %}<option value="{{ element.pk }}">{{ element.name }}</option>{% empty %}<option value="" disabled>No captured elements for this application</option>{% endfor %}
