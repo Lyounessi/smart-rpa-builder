@@ -20,6 +20,7 @@
 <section><h2>Workflow steps</h2><p>Describe one action per step. Navigation steps can be saved without a captured target.</p>
 {% include "projects/_steps.html" %}
 <a class="button" href="{% url 'step-create' project.pk %}" hx-get="{% url 'step-create' project.pk %}" hx-target="#editor">Add step</a></section>
+{% if project.robot %}<p><a class="button secondary" href="{% url 'robot-detail' project.robot.pk %}">View robot, history and results</a></p>{% endif %}
 <div id="editor" aria-live="polite"></div>
 <aside>Save a step with its target application, then use Capture / test target to inspect its web page.</aside>
 {% endblock %}

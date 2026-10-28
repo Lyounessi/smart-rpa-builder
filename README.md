@@ -132,6 +132,8 @@ Remove-Item Env:RUN_BROWSER_TESTS
 
 ### Python robot framework
 
+The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse generation remains deferred.
+
 The framework also exposes an injected email adapter for non-UI steps. The fake-only email demo validates simple input substitutions, records named email outcomes, and saves a business-success checkpoint so notification failure cannot repeat completed work. See the [email workflow steps guide](docs/email-workflow-steps.md) for the API, checkpoint behavior, fake-only demo, and tests. No real provider, OAuth, or email account UI is included.
 
 The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse generation and the Create RPA button remain a later milestone.

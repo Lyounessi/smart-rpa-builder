@@ -1,5 +1,7 @@
 # Robot framework v1
 
+The [Robots catalog guide](robot-catalog.md) describes saved build versions, run history, per-row results and timing KPIs available from the main navigation.
+
 This is the execution contract for manually authored robots and future Muse generation. The web app's future **Create RPA** button will assemble project details, ordered steps, input definitions/mappings, target application URLs, captured element IDs, locator definitions, reviewed highlighted screenshots, this document, and the example robot. Generation is not implemented here. Dataset values and actual credentials are not generation context by default.
 
 ## Robot identity and trust

@@ -118,6 +118,14 @@ class BrowserRobotTests(TransactionTestCase):
                 self.assertEqual(dataset.rows.filter(processing_status='done').count(), 2)
                 run.refresh_from_db()
                 self.assertIsNone(run.active_slot)
+                self.assertIsNotNone(run.build_id)
+                self.assertIsNotNone(run.started_at)
+                self.assertGreaterEqual(run.finished_at, run.started_at)
+                from django.urls import reverse
+                dashboard = self.client.get(reverse('robot-detail', args=[run.build.robot_id]))
+                self.assertEqual(dashboard.status_code, 200)
+                self.assertEqual(dashboard.context['metrics']['business_completed'], 2)
+                self.assertEqual(dashboard.context['metrics']['timed_rows'], 2)
                 if with_email:
                     from .models import ActionRecord
                     self.assertEqual(list(ActionRecord.objects.filter(attempt__run=run).values_list('status', flat=True)), ['simulated', 'simulated'])

@@ -21,7 +21,9 @@ EMAIL_MESSAGES = {
 }
 
 
-def release_claims(run):
+def release_claims(run, recovered=False):
+    if not recovered:
+        RowAttempt.objects.filter(run=run, finished_at__isnull=True).update(finished_at=timezone.now())
     DatasetRow.objects.filter(claimed_by=run, processing_status='in_progress').update(processing_status='pending')
     DatasetRow.objects.filter(claimed_by=run).update(claimed_by=None)
     RowAttempt.objects.filter(run=run, outcome='', business_completed_at__isnull=True).update(message='Interrupted before outcome was confirmed.')
@@ -30,17 +32,19 @@ def release_claims(run):
 
 
 @transaction.atomic
-def create_run(dataset, name):
+def create_run(dataset, name, build=None):
     # The unique active slot is authoritative even when two command processes race.
     for stale in RobotRun.objects.filter(active_slot='local', heartbeat__lt=timezone.now() - timedelta(seconds=LEASE_SECONDS)):
-        release_claims(stale)
+        release_claims(stale, recovered=True)
         stale.state, stale.active_slot, stale.message = 'failed', None, 'Worker lease expired. Check external effects before retrying.'
         stale.save(update_fields=['state', 'active_slot', 'message'])
     if dataset.status != 'ready' or dataset.rows.exclude(errors=[]).exists():
         raise ValueError('Choose a confirmed, valid dataset.')
     if not dataset.rows.filter(processing_status='pending', errors=[]).exists():
         raise ValueError('No pending rows remain in this dataset.')
-    return RobotRun.objects.create(dataset=dataset, robot_name=name, heartbeat=timezone.now())
+    if build is not None and (build.robot.project_id != dataset.project_id or build.configuration.get('robot_name') != name):
+        raise ValueError('Build does not belong to this project and robot.')
+    return RobotRun.objects.create(dataset=dataset, robot_name=name, build=build, heartbeat=timezone.now())
 
 
 class DjangoQueue:
@@ -57,19 +61,20 @@ class DjangoQueue:
                 raise ExecutionCancelled()
             if kind == 'run_started':
                 current.state = 'running'
-                current.save(update_fields=['state'])
+                current.started_at = current.started_at or timezone.now()
+                current.save(update_fields=['state', 'started_at'])
             elif kind == 'row_started':
                 if current.cancel_requested:
                     raise ExecutionCancelled()
                 claimed = DatasetRow.objects.filter(pk=row, dataset=current.dataset, processing_status='pending').update(processing_status='in_progress', claimed_by=current)
                 if claimed != 1:
                     raise RuntimeError('Row is no longer available.')
-                RowAttempt.objects.create(run=current, row_id=row)
+                RowAttempt.objects.create(run=current, row_id=row, started_at=timezone.now())
             elif kind == 'row_finished':
                 attempt = RowAttempt.objects.get(run=current, row_id=row)
                 business_done = attempt.business_completed_at is not None or result.status == 'OK'
                 RowAttempt.objects.filter(pk=attempt.pk).update(outcome=result.status, message=result.message,
-                    failed_step=result.failed_step or '', evidence=result.evidence, updated_at=timezone.now())
+                    failed_step=result.failed_step or '', evidence=result.evidence, updated_at=timezone.now(), finished_at=timezone.now())
                 if business_done and attempt.business_completed_at is None:
                     RowAttempt.objects.filter(pk=attempt.pk).update(business_completed_at=timezone.now())
                 DatasetRow.objects.filter(pk=row, claimed_by=current).update(
@@ -96,6 +101,7 @@ class DjangoQueue:
                 current.counts = dict(Counter(item.status for item in summary.rows))
                 current.cleanup_errors, current.artifacts = summary.cleanup_errors, summary.artifacts
                 current.unprocessed = summary.unprocessed
+                current.finished_at = timezone.now()
                 current.save()
             ProgressEvent.objects.create(run=current, kind=kind, row_reference=row or '', step=step or '')
 

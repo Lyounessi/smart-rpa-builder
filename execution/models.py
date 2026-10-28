@@ -3,10 +3,40 @@ from django.db import models
 from projects.models import Timestamped
 
 
+class Robot(Timestamped):
+    project = models.OneToOneField('projects.Project', on_delete=models.PROTECT, related_name='robot')
+    name = models.CharField(max_length=240)
+
+    def __str__(self):
+        return self.name
+
+
+class RobotBuild(Timestamped):
+    robot = models.ForeignKey(Robot, on_delete=models.PROTECT, related_name='builds')
+    version = models.PositiveIntegerField()
+    origin = models.CharField(max_length=10, choices=[('manual', 'Manual'), ('muse', 'Muse')])
+    status = models.CharField(max_length=20, choices=[('registered', 'Registered'), ('queued', 'Queued'),
+        ('building', 'Building'), ('validated', 'Validated'), ('failed', 'Failed')])
+    source_files = models.JSONField(default=dict)
+    configuration = models.JSONField(default=dict)
+    source_digest = models.CharField(max_length=64, blank=True)
+    validation_report = models.JSONField(default=list)
+
+    class Meta:
+        ordering = ['-version']
+        constraints = [models.UniqueConstraint(fields=['robot', 'version'], name='unique_robot_build_version')]
+
+    def __str__(self):
+        return f'{self.robot.name} v{self.version}'
+
+
 class RobotRun(Timestamped):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dataset = models.ForeignKey('projects.Dataset', on_delete=models.PROTECT, related_name='runs')
     robot_name = models.CharField(max_length=240)
+    build = models.ForeignKey(RobotBuild, null=True, blank=True, on_delete=models.PROTECT, related_name='runs')
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
     state = models.CharField(max_length=12, default='queued')
     active_slot = models.CharField(max_length=10, null=True, unique=True, default='local')
     heartbeat = models.DateTimeField()
@@ -26,6 +56,8 @@ class RowAttempt(Timestamped):
     failed_step = models.CharField(max_length=200, blank=True)
     evidence = models.JSONField(default=list)
     business_completed_at = models.DateTimeField(null=True, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['run', 'row'], name='unique_run_row_attempt')]
