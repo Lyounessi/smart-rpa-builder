@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% block title %}Robots · Smart RPA Builder{% endblock %}
+{% block content %}<p class="eyebrow">Your automations</p><h1>Robots</h1><p>Inspect robot versions, processing history, and results.</p>
+<div class="grid">{% for robot in page %}<article><h2><a href="{% url 'robot-detail' robot.pk %}">{{ robot.name }}</a></h2><p>{{ robot.project.name }}</p>
+<p>{% if robot.latest_version %}Version {{ robot.latest_version }} · {{ robot.build_status|title }} · {{ robot.build_origin|title }}{% else %}Historical runs · Build version not recorded{% endif %}</p>
+<p><strong>{{ robot.pending_count }}</strong> pending inputs · <strong>{{ robot.completed_count }}</strong> business operations completed</p>
+{% if robot.last_run_id %}<p>Last run: <a href="{% url 'run-detail' robot.last_run_id %}">{{ robot.last_state|title }}</a><br><small>{{ robot.last_run_at }}</small></p>{% else %}<p class="muted">No runs yet</p>{% endif %}</article>
+{% empty %}<article><h2>No built robots yet</h2><p>Projects appear here after a robot is registered or built. Muse generation will be added next.</p><a href="{% url 'home' %}">View projects</a></article>{% endfor %}</div>
+{% if page.has_other_pages %}<nav aria-label="Robot pages">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

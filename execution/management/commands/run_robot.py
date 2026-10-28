@@ -1,0 +1,57 @@
+from pathlib import Path
+
+from django.conf import settings
+from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.db import IntegrityError
+
+from projects.models import Dataset
+from robot_framework.adapters.browser import PlaywrightBrowser
+from robot_framework.adapters.secrets import EnvironmentSecrets
+from robot_framework.adapters.email import FakeEmailAdapter
+from robot_framework.contracts import RunOptions
+from robot_framework.runner import Runner
+from robots.registry import for_project
+from execution.adapters import DjangoQueue, LeaseCancellation, create_run
+from execution.catalog import register_manual_build
+
+
+class Command(BaseCommand):
+    help = 'Execute a trusted named robot against pending rows of a confirmed dataset.'
+
+    def add_arguments(self, parser):
+        parser.add_argument('robot_name')
+        parser.add_argument('--dataset', type=int, required=True)
+        parser.add_argument('--record-screen', action='store_true', help='Record browser page video (sensitive).')
+        parser.add_argument('--stop-on-nok', action='store_true')
+        parser.add_argument('--continue-on-error', action='store_true')
+        parser.add_argument('--action-timeout-ms', type=int, default=10000)
+        parser.add_argument('--email-timeout-seconds', type=float, default=15)
+        parser.add_argument('--fake-email', action='store_true', help='Simulate email only; never send real messages.')
+
+    def handle(self, *args, **options):
+        try:
+            dataset = Dataset.objects.select_related('project').get(pk=options['dataset'])
+            registry = for_project(dataset.project)
+            registry.resolve(options['robot_name'])
+            run_options = RunOptions(options['record_screen'], options['stop_on_nok'],
+                not options['continue_on_error'], options['action_timeout_ms'], options['email_timeout_seconds'])
+            build = register_manual_build(dataset.project, options['robot_name'])
+            run = create_run(dataset, options['robot_name'], build=build)
+        except (ValueError, ObjectDoesNotExist, MultipleObjectsReturned, IntegrityError) as error:
+            raise CommandError('Cannot start: invalid robot/dataset/options, or another run is active.') from error
+        self.stdout.write(f'Run {run.pk}: /execution/{run.pk}/')
+        queue = DjangoQueue(run)
+        elements = build.configuration['elements']
+        applications = build.configuration['applications']
+        browser = PlaywrightBrowser(elements, applications, Path(settings.MEDIA_ROOT) / 'runs' / str(run.pk))
+        try:
+            with LeaseCancellation(run.pk) as cancellation:
+                result = Runner(registry, browser, EnvironmentSecrets(), queue, cancellation,
+                    email=FakeEmailAdapter() if options['fake_email'] else None).run(
+                    options['robot_name'], queue.rows(), run_options, input_fields=[item['key'] for item in dataset.schema_snapshot])
+        except Exception:
+            raise CommandError('Worker could not persist progress. Lease recovery will release abandoned work; review before retrying.') from None
+        self.stdout.write(f'{result.state}: {len(result.rows)} rows attempted.')
+        if result.state in {'failed', 'cancelled'}:
+            raise CommandError('Run did not complete. Review the progress page.')

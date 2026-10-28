@@ -47,7 +47,7 @@ def dataset_detail(request, project_id, dataset_id):
     project = get_object_or_404(Project, pk=project_id)
     dataset = get_object_or_404(project.datasets, pk=dataset_id)
     page = Paginator(dataset.rows.all(), 50).get_page(request.GET.get('page'))
-    table = [{'number':row.row_number, 'cells':[row.values.get(key, '') for key in dataset.headers], 'errors':row.errors} for row in page]
+    table = [{'number':row.row_number, 'cells':[row.values.get(key, '') for key in dataset.headers], 'errors':row.errors, 'queue_status':row.get_processing_status_display()} for row in page]
     current_schema = list(project.inputs.values('key', 'description', 'data_type', 'required'))
     return render(request, 'projects/dataset_detail.html', {'project':project, 'dataset':dataset, 'page':page,
         'table':table, 'schema_changed':current_schema != dataset.schema_snapshot})

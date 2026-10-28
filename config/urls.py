@@ -3,8 +3,13 @@ from django.urls import include, path
 
 from projects import views
 from projects import input_views
+from execution import robot_views
 
 urlpatterns = [
+    path('robots/', robot_views.robot_list, name='robot-list'),
+    path('robots/<int:robot_id>/', robot_views.robot_detail, name='robot-detail'),
+    path('robots/<int:robot_id>/builds/<int:version>/', robot_views.build_detail, name='robot-build-detail'),
+    path('execution/', include('execution.urls')),
     path('projects/<int:project_id>/inputs/new/', input_views.input_edit, name='input-create'),
     path('projects/<int:project_id>/inputs/<int:input_id>/edit/', input_views.input_edit, name='input-edit'),
     path('projects/<int:project_id>/datasets/upload/', input_views.dataset_upload, name='dataset-upload'),

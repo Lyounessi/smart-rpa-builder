@@ -1,0 +1,10 @@
+<section id="run-progress" {% if run.active_slot %}hx-get="{% url 'run-detail' run.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+<h2>{{ run.state|title }}</h2><p>{{ run.message }}</p><p>Outcomes: {{ run.counts }} · Unprocessed: {{ run.unprocessed|length }}</p>
+{% if run.active_slot %}<form method="post" action="{% url 'run-cancel' run.pk %}">{% csrf_token %}<button>Request cancellation</button></form><p>Cancellation takes effect between bounded browser actions.</p>{% endif %}
+{% for error in run.cleanup_errors %}<p>{{ error }}</p>{% endfor %}
+<table><thead><tr><th>File row</th><th>Queue state</th><th>Outcome</th><th>Message</th><th>Failed step</th></tr></thead><tbody>{% for attempt in attempts %}<tr><td>{{ attempt.row.row_number }}</td><td>{{ attempt.row.get_processing_status_display }}</td><td>{{ attempt.outcome|default:'Unconfirmed' }}</td><td>{{ attempt.message }}</td><td>{{ attempt.failed_step }}</td></tr>{% endfor %}</tbody></table>
+{% if run.artifacts %}<p>Browser page recordings are stored locally under media/runs/{{ run.pk }}/. They may contain sensitive information.</p>{% endif %}
+{% for attempt in attempts %}{% if attempt.business_completed_at or attempt.actions.all %}<article><h3>File row {{ attempt.row.row_number }}</h3>
+{% if attempt.business_completed_at %}<p>Business operation completed. This row will not repeat its business operation to retry a notification.</p>{% endif %}
+{% for action in attempt.actions.all %}<p>{{ action.step_id }} · {{ action.get_status_display }} · {{ action.message }}</p>{% endfor %}</article>{% endif %}{% endfor %}
+<details><summary>Recent progress</summary>{% for event in events %}<p>{{ event.created_at }} · {{ event.kind }} · Row {{ event.row_reference }} · {{ event.step }}</p>{% endfor %}</details></section>
