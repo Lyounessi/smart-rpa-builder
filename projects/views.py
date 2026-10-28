@@ -3,7 +3,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
-from .forms import ProjectForm, StepForm, WindowForm
+from .forms import AutomationBriefForm, ProjectForm, StepForm, WindowForm
 from .models import Project
 from .services import move_step, save_new_step
 
@@ -46,6 +46,15 @@ def project_detail(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     steps = project.steps.select_related("window", "input_column").prefetch_related("element_references__element")
     return render(request, "projects/detail.html", {"project": project, "steps": steps})
+
+
+@require_http_methods(['GET', 'POST'])
+def automation_brief_edit(request, project_id):
+    project = get_object_or_404(Project, pk=project_id)
+    form = AutomationBriefForm(request.POST if request.method == 'POST' else None, instance=project)
+    if request.method == 'POST' and form.is_valid():
+        return successful_save(request, form.save())
+    return form_response(request, form, 'Automation brief (optional)', project)
 
 
 @require_http_methods(["GET", "POST"])

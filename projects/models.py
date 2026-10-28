@@ -20,6 +20,9 @@ class Project(Timestamped):
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     application_scope = models.CharField(max_length=10, choices=ApplicationScope.choices, default=ApplicationScope.WEB)
+    automation_goal = models.TextField(blank=True, default='', max_length=5000)
+    global_rules = models.TextField(blank=True, default='', max_length=5000)
+    success_criteria = models.TextField(blank=True, default='', max_length=5000)
 
     def __str__(self):
         return self.name

@@ -6,6 +6,13 @@
 <p class="muted">Application setup: {{ project.get_application_scope_display }}{% if project.application_scope == "multiple" %} · Web only for now{% endif %}</p>
 <p>{{ project.description|linebreaksbr }}</p>
 <a href="{% url 'project-edit' project.pk %}" hx-get="{% url 'project-edit' project.pk %}" hx-target="#editor">Edit project</a>
+<section aria-labelledby="automation-brief-title"><h2 id="automation-brief-title">Automation brief</h2>
+<p>Optional context for Muse, alongside your explicit workflow steps. Step targets, input mappings, and execution settings stay unchanged.</p>
+<article><h3>Goal</h3><p>{{ project.automation_goal|default:'Not specified'|linebreaksbr }}</p>
+<h3>Global rules</h3><p>{{ project.global_rules|default:'Not specified'|linebreaksbr }}</p>
+<h3>Success criteria</h3><p>{{ project.success_criteria|default:'Not specified'|linebreaksbr }}</p></article>
+<a class="button secondary" href="{% url 'project-brief-edit' project.pk %}" hx-get="{% url 'project-brief-edit' project.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">{% if project.automation_goal or project.global_rules or project.success_criteria %}Edit{% else %}Add{% endif %} automation brief</a>
+</section>
 <section><h2>Process inputs</h2><p>Define the data each workflow run will receive. Reference these keys in your step instructions, such as “Fill using supplier_name”.</p>
 <div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Required</th><th>Description</th><th></th></tr></thead><tbody>
 {% for input in project.inputs.all %}<tr><td><code>{{ input.key }}</code></td><td>{{ input.get_data_type_display }}</td><td>{{ input.required|yesno:"Yes,No" }}</td><td>{{ input.description }}</td><td><a href="{% url 'input-edit' project.pk input.pk %}" hx-get="{% url 'input-edit' project.pk input.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Edit</a></td></tr>{% empty %}<tr><td colspan="5">No inputs yet. Add keys such as name or document_type.</td></tr>{% endfor %}
