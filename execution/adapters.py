@@ -8,17 +8,32 @@ from django.utils import timezone
 
 from projects.models import DatasetRow
 from robot_framework.contracts import ExecutionCancelled, InputRow
-from .models import ProgressEvent, RobotRun, RowAttempt
+from .models import ActionRecord, ProgressEvent, RobotRun, RowAttempt
 
 LEASE_SECONDS = 120
+
+EMAIL_MESSAGES = {
+    'started': 'Email attempt started.',
+    'simulated': 'Email simulated; no message sent.',
+    'accepted': 'Email accepted by provider; inbox delivery not confirmed.',
+    'failed': 'Email was not accepted.',
+    'uncertain': 'Email delivery uncertain. Do not automatically resend.',
+}
+
+
+def release_claims(run):
+    DatasetRow.objects.filter(claimed_by=run, processing_status='in_progress').update(processing_status='pending')
+    DatasetRow.objects.filter(claimed_by=run).update(claimed_by=None)
+    RowAttempt.objects.filter(run=run, outcome='', business_completed_at__isnull=True).update(message='Interrupted before outcome was confirmed.')
+    RowAttempt.objects.filter(run=run, outcome='', business_completed_at__isnull=False).update(message='Business operation completed; remaining steps interrupted.')
+    ActionRecord.objects.filter(attempt__run=run, status='started').update(status='uncertain', message=EMAIL_MESSAGES['uncertain'], updated_at=timezone.now())
 
 
 @transaction.atomic
 def create_run(dataset, name):
     # The unique active slot is authoritative even when two command processes race.
     for stale in RobotRun.objects.filter(active_slot='local', heartbeat__lt=timezone.now() - timedelta(seconds=LEASE_SECONDS)):
-        DatasetRow.objects.filter(claimed_by=stale, processing_status='in_progress').update(processing_status='pending', claimed_by=None)
-        RowAttempt.objects.filter(run=stale, outcome='').update(message='Worker lease expired; outcome unknown.')
+        release_claims(stale)
         stale.state, stale.active_slot, stale.message = 'failed', None, 'Worker lease expired. Check external effects before retrying.'
         stale.save(update_fields=['state', 'active_slot', 'message'])
     if dataset.status != 'ready' or dataset.rows.exclude(errors=[]).exists():
@@ -35,7 +50,7 @@ class DjangoQueue:
     def rows(self):
         return [InputRow(str(row.pk), row.values) for row in self.run.dataset.rows.filter(processing_status='pending', errors=[])]
 
-    def emit(self, kind, row=None, step=None, result=None, summary=None):
+    def emit(self, kind, row=None, step=None, result=None, summary=None, action_status=None):
         with transaction.atomic():
             current = RobotRun.objects.get(pk=self.run.pk)
             if current.active_slot != 'local':
@@ -51,13 +66,32 @@ class DjangoQueue:
                     raise RuntimeError('Row is no longer available.')
                 RowAttempt.objects.create(run=current, row_id=row)
             elif kind == 'row_finished':
-                RowAttempt.objects.filter(run=current, row_id=row).update(outcome=result.status, message=result.message,
-                    failed_step=result.failed_step or '', evidence=result.evidence)
+                attempt = RowAttempt.objects.get(run=current, row_id=row)
+                business_done = attempt.business_completed_at is not None or result.status == 'OK'
+                RowAttempt.objects.filter(pk=attempt.pk).update(outcome=result.status, message=result.message,
+                    failed_step=result.failed_step or '', evidence=result.evidence, updated_at=timezone.now())
+                if business_done and attempt.business_completed_at is None:
+                    RowAttempt.objects.filter(pk=attempt.pk).update(business_completed_at=timezone.now())
                 DatasetRow.objects.filter(pk=row, claimed_by=current).update(
-                    processing_status='done' if result.status == 'OK' else 'pending', claimed_by=None)
+                    processing_status='done' if business_done else 'pending', claimed_by=None)
+            elif kind == 'business_completed':
+                attempt = RowAttempt.objects.get(run=current, row_id=row)
+                if DatasetRow.objects.filter(pk=row, claimed_by=current).update(processing_status='done') != 1:
+                    raise RuntimeError('Business completion requires a claimed row.')
+                if attempt.business_completed_at is None:
+                    RowAttempt.objects.filter(pk=attempt.pk).update(business_completed_at=timezone.now())
+            elif kind in {'email_started', 'email_finished'}:
+                attempt = RowAttempt.objects.get(run=current, row_id=row)
+                if action_status not in EMAIL_MESSAGES or not step:
+                    raise ValueError('Invalid email action event.')
+                if kind == 'email_started':
+                    ActionRecord.objects.create(attempt=attempt, step_id=step, status='started', message=EMAIL_MESSAGES['started'])
+                else:
+                    if action_status == 'started' or ActionRecord.objects.filter(attempt=attempt, step_id=step, status='started').update(
+                            status=action_status, message=EMAIL_MESSAGES[action_status], updated_at=timezone.now()) != 1:
+                        raise ValueError('Email action was not started or was already finalized.')
             if summary is not None:
-                DatasetRow.objects.filter(claimed_by=current, processing_status='in_progress').update(processing_status='pending', claimed_by=None)
-                RowAttempt.objects.filter(run=current, outcome='').update(message='Interrupted before outcome was confirmed.')
+                release_claims(current)
                 current.state, current.message, current.active_slot = summary.state, summary.message, None
                 current.counts = dict(Counter(item.status for item in summary.rows))
                 current.cleanup_errors, current.artifacts = summary.cleanup_errors, summary.artifacts

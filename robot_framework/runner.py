@@ -3,17 +3,23 @@ from .contracts import ExecutionCancelled, RunResult, RunState
 
 
 class Runner:
-    def __init__(self, registry, browser, secrets, events, cancellation):
+    def __init__(self, registry, browser, secrets, events, cancellation, *, email=None):
         self.registry, self.browser, self.secrets = registry, browser, secrets
         self.events, self.cancellation = events, cancellation
+        self.email = email
 
-    def run(self, robot_name, rows, options):
+    def run(self, robot_name, rows, options, *, input_fields=None):
         robot = self.registry.resolve(robot_name)()
         rows = list(rows)
-        ctx = RobotContext(self.browser, self.secrets, self.events, self.cancellation)
+        ctx = RobotContext(self.browser, self.secrets, self.events, self.cancellation, self.email, options.email_timeout_seconds)
         result = RunResult(state=RunState.FAILED, unprocessed=[row.reference for row in rows])
         try:
             ctx.checkpoint()
+            fields = set(input_fields) if input_fields is not None else (set.intersection(*(set(row.values) for row in rows)) if rows else set())
+            for specification in robot.email_steps:
+                specification.validate(fields)
+                for row in rows:
+                    specification.render(row.values)
             self.browser.open(options)
             result = robot.execute(ctx, rows, options)
         except (ExecutionCancelled, KeyboardInterrupt) as error:

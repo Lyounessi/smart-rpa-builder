@@ -1,10 +1,11 @@
 from contextlib import contextmanager
 
 from .contracts import ExecutionCancelled, Progress
+from .email import EmailService, UnconfiguredEmail
 
 
 class RobotContext:
-    def __init__(self, browser, secrets, events, cancellation):
+    def __init__(self, browser, secrets, events, cancellation, email=None, email_timeout_seconds=15):
         self.browser = browser
         self.secrets = secrets
         self.events = events
@@ -12,10 +13,22 @@ class RobotContext:
         self.row = None
         self.failed_step = None
         self.cleaning = False
+        self.active_step = None
+        self.business_succeeded = False
+        self.email = EmailService(self, email if email is not None else UnconfiguredEmail(), email_timeout_seconds)
 
     def emit(self, kind, **data):
         event = Progress(kind, row=self.row, **data)
-        self.events.emit(event.kind, row=event.row, step=event.step, result=event.result, summary=event.summary)
+        extra = {'action_status': event.action_status} if event.action_status is not None else {}
+        self.events.emit(event.kind, row=event.row, step=event.step, result=event.result, summary=event.summary, **extra)
+
+    def business_completed(self):
+        """Persist verified business success before attempting optional notifications."""
+        if self.row is None or self.cleaning:
+            raise ValueError('Business completion requires an active input row.')
+        if not self.business_succeeded:
+            self.emit('business_completed', step=self.active_step)
+            self.business_succeeded = True
 
     def checkpoint(self):
         if not self.cleaning and self.cancellation.requested():
@@ -24,6 +37,7 @@ class RobotContext:
     @contextmanager
     def step(self, step_id):
         self.checkpoint()
+        previous_step, self.active_step = self.active_step, str(step_id)
         self.emit('step_started', step=str(step_id))
         try:
             yield
@@ -33,6 +47,8 @@ class RobotContext:
             raise
         else:
             self.emit('step_completed', step=str(step_id))
+        finally:
+            self.active_step = previous_step
 
     def _action(self, method, *args):
         self.checkpoint()

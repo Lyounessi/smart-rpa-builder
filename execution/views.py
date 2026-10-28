@@ -7,7 +7,7 @@ from .models import RobotRun
 def detail(request, run_id):
     run = get_object_or_404(RobotRun.objects.select_related('dataset__project'), pk=run_id)
     template = 'execution/_progress.html' if request.headers.get('HX-Request') == 'true' else 'execution/detail.html'
-    return render(request, template, {'run': run, 'attempts': run.attempts.select_related('row').order_by('pk'),
+    return render(request, template, {'run': run, 'attempts': run.attempts.select_related('row').prefetch_related('actions').order_by('pk'),
         'events': run.events.order_by('-pk')[:50]})
 
 

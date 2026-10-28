@@ -91,6 +91,12 @@ class QueueTests(TestCase):
 @skipUnless(os.environ.get('RUN_BROWSER_TESTS') == '1', 'Opt-in real Chromium smoke test')
 class BrowserRobotTests(TransactionTestCase):
     def test_two_rows_recording_and_cleanup(self):
+        self.run_browser_fixture(with_email=False)
+
+    def test_email_steps_simulated_without_targets_or_network(self):
+        self.run_browser_fixture(with_email=True)
+
+    def run_browser_fixture(self, with_email):
         from unittest.mock import patch
         from .management.commands.serve_robot_fixture import Handler
 
@@ -98,10 +104,12 @@ class BrowserRobotTests(TransactionTestCase):
             thread = Thread(target=server.serve_forever, daemon=True)
             thread.start()
             try:
-                call_command('prepare_robot_demo', port=server.server_port)
-                dataset = Dataset.objects.get(project__name='Invoice Checks')
+                call_command('prepare_robot_demo', port=server.server_port, with_email=with_email)
+                name = 'Invoice Checks Email' if with_email else 'Invoice Checks'
+                dataset = Dataset.objects.get(project__name=name)
                 with override_settings(MEDIA_ROOT=artifacts), patch.dict(os.environ, {'RPA_SECRET_DEMO_USERNAME':'demo', 'RPA_SECRET_DEMO_PASSWORD':'demo'}):
-                    call_command('run_robot', 'ROBOT_INVOICE_CHECKS', dataset=dataset.pk, record_screen=True)
+                    call_command('run_robot', 'ROBOT_INVOICE_CHECKS_EMAIL' if with_email else 'ROBOT_INVOICE_CHECKS',
+                                 dataset=dataset.pk, record_screen=True, fake_email=with_email)
                 run = RobotRun.objects.get(dataset=dataset)
                 self.assertEqual(run.state, 'completed', run.message)
                 self.assertEqual(list(run.attempts.order_by('pk').values_list('outcome', flat=True)), ['OK', 'OK'])
@@ -110,6 +118,10 @@ class BrowserRobotTests(TransactionTestCase):
                 self.assertEqual(dataset.rows.filter(processing_status='done').count(), 2)
                 run.refresh_from_db()
                 self.assertIsNone(run.active_slot)
+                if with_email:
+                    from .models import ActionRecord
+                    self.assertEqual(list(ActionRecord.objects.filter(attempt__run=run).values_list('status', flat=True)), ['simulated', 'simulated'])
+                    self.assertEqual(run.attempts.filter(business_completed_at__isnull=False).count(), 2)
             finally:
                 server.shutdown()
                 thread.join(timeout=3)

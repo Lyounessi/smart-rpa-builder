@@ -9,6 +9,7 @@ from inspector.models import CapturedElement
 from projects.models import Dataset
 from robot_framework.adapters.browser import PlaywrightBrowser
 from robot_framework.adapters.secrets import EnvironmentSecrets
+from robot_framework.adapters.email import FakeEmailAdapter
 from robot_framework.contracts import RunOptions
 from robot_framework.runner import Runner
 from robots.registry import for_project
@@ -25,6 +26,8 @@ class Command(BaseCommand):
         parser.add_argument('--stop-on-nok', action='store_true')
         parser.add_argument('--continue-on-error', action='store_true')
         parser.add_argument('--action-timeout-ms', type=int, default=10000)
+        parser.add_argument('--email-timeout-seconds', type=float, default=15)
+        parser.add_argument('--fake-email', action='store_true', help='Simulate email only; never send real messages.')
 
     def handle(self, *args, **options):
         try:
@@ -32,7 +35,7 @@ class Command(BaseCommand):
             registry = for_project(dataset.project)
             registry.resolve(options['robot_name'])
             run_options = RunOptions(options['record_screen'], options['stop_on_nok'],
-                not options['continue_on_error'], options['action_timeout_ms'])
+                not options['continue_on_error'], options['action_timeout_ms'], options['email_timeout_seconds'])
             run = create_run(dataset, options['robot_name'])
         except (ValueError, ObjectDoesNotExist, MultipleObjectsReturned, IntegrityError) as error:
             raise CommandError('Cannot start: invalid robot/dataset/options, or another run is active.') from error
@@ -43,8 +46,9 @@ class Command(BaseCommand):
         browser = PlaywrightBrowser(elements, applications, Path(settings.MEDIA_ROOT) / 'runs' / str(run.pk))
         try:
             with LeaseCancellation(run.pk) as cancellation:
-                result = Runner(registry, browser, EnvironmentSecrets(), queue, cancellation).run(
-                    options['robot_name'], queue.rows(), run_options)
+                result = Runner(registry, browser, EnvironmentSecrets(), queue, cancellation,
+                    email=FakeEmailAdapter() if options['fake_email'] else None).run(
+                    options['robot_name'], queue.rows(), run_options, input_fields=[item['key'] for item in dataset.schema_snapshot])
         except Exception:
             raise CommandError('Worker could not persist progress. Lease recovery will release abandoned work; review before retrying.') from None
         self.stdout.write(f'{result.state}: {len(result.rows)} rows attempted.')

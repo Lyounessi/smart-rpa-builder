@@ -25,6 +25,7 @@ class RowAttempt(Timestamped):
     message = models.CharField(max_length=300, blank=True)
     failed_step = models.CharField(max_length=200, blank=True)
     evidence = models.JSONField(default=list)
+    business_completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['run', 'row'], name='unique_run_row_attempt')]
@@ -36,3 +37,15 @@ class ProgressEvent(models.Model):
     kind = models.CharField(max_length=40)
     row_reference = models.CharField(max_length=40, blank=True)
     step = models.CharField(max_length=200, blank=True)
+
+
+class ActionRecord(Timestamped):
+    attempt = models.ForeignKey(RowAttempt, on_delete=models.CASCADE, related_name='actions')
+    step_id = models.CharField(max_length=200)
+    action_type = models.CharField(max_length=30, default='send_email')
+    status = models.CharField(max_length=12, choices=[(value, value.title()) for value in
+        ['started', 'simulated', 'accepted', 'failed', 'uncertain']])
+    message = models.CharField(max_length=300, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['attempt', 'step_id'], name='unique_attempt_action_step')]

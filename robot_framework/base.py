@@ -3,6 +3,8 @@ from .contracts import (BusinessRejection, ExecutionCancelled, Outcome,
 
 
 class BaseRobot:
+    email_steps = ()
+
     def setup(self, ctx):
         pass
 
@@ -31,6 +33,7 @@ class BaseRobot:
                 ctx.checkpoint()
                 row = remaining[0]
                 ctx.row, ctx.failed_step = row.reference, None
+                ctx.business_succeeded = False
                 ctx.emit('row_started')
                 try:
                     self.process(ctx, row.values)
@@ -44,6 +47,9 @@ class BaseRobot:
                     outcome = RowResult(row.reference, Outcome.ERROR, 'Technical execution failure.', ctx.failed_step)
                     if options.stop_on_error:
                         result.primary_error = error
+                outcome.business_completed = ctx.business_succeeded or outcome.status == Outcome.OK
+                if ctx.business_succeeded and outcome.status != Outcome.OK:
+                    outcome.message = 'Business operation completed; a subsequent step failed.'
                 ctx.emit('row_finished', result=outcome)
                 result.rows.append(outcome)
                 remaining.pop(0)
@@ -67,7 +73,7 @@ class BaseRobot:
             result.primary_error = error
             result.state, result.message = RunState.FAILED, 'Setup, recovery, or persistence failed.'
         finally:
-            result.unprocessed = [row.reference for row in remaining]
+            result.unprocessed = [row.reference for row in remaining if not (ctx.business_succeeded and row.reference == ctx.row)]
             ctx.cleaning = True
             ctx.row = None
             if setup_attempted:
