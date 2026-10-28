@@ -15,7 +15,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS",
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "accounts", "projects", "inspector",
+    "accounts", "projects", "inspector", "execution",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",

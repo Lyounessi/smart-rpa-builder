@@ -1,0 +1,2 @@
+{% extends "base.html" %}
+{% block content %}<a href="{% url 'dataset-detail' run.dataset.project_id run.dataset_id %}">← Dataset</a><h1>{{ run.robot_name }}</h1>{% include 'execution/_progress.html' %}{% endblock %}

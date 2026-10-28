@@ -130,6 +130,12 @@ Remove-Item Env:RUN_BROWSER_TESTS
 
 ## Hackathon Contributions
 
+### Python robot framework
+
+The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse generation and the Create RPA button remain a later milestone.
+
+See [framework API, runnable local demo, commands, and limitations](docs/robot-framework.md). Start with `python manage.py prepare_robot_demo`, run `python manage.py serve_robot_fixture` in another terminal, then use the printed dataset ID with `python manage.py run_robot ROBOT_INVOICE_CHECKS --dataset <id>`. The example's fictional login secrets must be configured as described in that document.
+
 ### Step input mappings
 
 In the step editor, choose **Click**, **Fill**, or **Select option**. Fill and Select option require an **Input column** from the current project's process inputs (for example `name`). This stores a reference to the input definition, so the future runner can use that column's value from each dataset row. Click clears the input mapping. Captured targets remain optional while drafting a step.

@@ -5,6 +5,7 @@ from projects import views
 from projects import input_views
 
 urlpatterns = [
+    path('execution/', include('execution.urls')),
     path('projects/<int:project_id>/inputs/new/', input_views.input_edit, name='input-create'),
     path('projects/<int:project_id>/inputs/<int:input_id>/edit/', input_views.input_edit, name='input-edit'),
     path('projects/<int:project_id>/datasets/upload/', input_views.dataset_upload, name='dataset-upload'),

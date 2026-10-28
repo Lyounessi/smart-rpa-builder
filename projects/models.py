@@ -114,6 +114,8 @@ class DatasetRow(models.Model):
     row_number = models.PositiveIntegerField()
     values = models.JSONField()
     errors = models.JSONField(default=list)
+    processing_status = models.CharField(max_length=12, choices=[('pending', 'Pending'), ('in_progress', 'In progress'), ('done', 'Done')], default='pending')
+    claimed_by = models.ForeignKey('execution.RobotRun', null=True, blank=True, on_delete=models.SET_NULL, related_name='claimed_rows')
 
     class Meta:
         ordering = ['row_number']
