@@ -130,6 +130,14 @@ Remove-Item Env:RUN_BROWSER_TESTS
 
 ## Hackathon Contributions
 
+### Project automation brief
+
+Projects support an optional **Automation brief**: Goal, Global rules and Success criteria (up to 5,000 characters each). Set these when creating/editing a project or use the dedicated Add/Edit automation brief button on its detail page. Existing projects remain valid with all fields empty; briefs can also be cleared. Keep credentials out of these fields.
+
+`projects.generation_context.assemble_generation_context(project, framework_contract=...)` prepares structured context for the future Muse integration. User-authored project data, including the brief, is separate from platform instructions and the supplied framework contract. It includes ordered step instructions, input definitions/mappings, target applications and only referenced saved elements, with locator evidence and screenshot references. It excludes dataset row values and sends nothing externally. Structured expected outcomes and exception rules are empty while no such configuration exists; they are not inferred from past execution results.
+
+The brief supplements explicit steps and does not change their targets, mappings or execution settings. Generation instructions require a clear `clarification_required` response when an identified contradiction needs resolution, rather than silently choosing an interpretation. This is a contract for the upcoming integration, not an implemented contradiction detector or a guarantee that every conflict can be found. Muse calls and generation response handling remain deferred.
+
 ### Python robot framework
 
 The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse generation remains deferred.

@@ -17,13 +17,26 @@ class ApplicationScopeSelect(forms.Select):
         return option
 
 
-class ProjectForm(forms.ModelForm):
+class AutomationBriefForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ["name", "application_scope", "description"]
-        labels = {"application_scope": "Application setup"}
-        widgets = {"application_scope": ApplicationScopeSelect}
-        help_texts = {"application_scope": "The hackathon version supports web applications. Desktop and mixed web/desktop workflows are coming later."}
+        fields = ['automation_goal', 'global_rules', 'success_criteria']
+        labels = {'automation_goal':'Goal', 'global_rules':'Global rules', 'success_criteria':'Success criteria'}
+        help_texts = {
+            'automation_goal':'Optional. What should this automation accomplish?',
+            'global_rules':'Optional. Constraints that apply across the workflow. Explicit step mappings and execution settings remain unchanged.',
+            'success_criteria':'Optional. What counts as successful processing? Do not enter passwords or other secrets.',
+        }
+        widgets = {key: forms.Textarea(attrs={'rows':3}) for key in fields}
+
+
+class ProjectForm(AutomationBriefForm):
+    class Meta:
+        model = Project
+        fields = ["name", "application_scope", "description", 'automation_goal', 'global_rules', 'success_criteria']
+        labels = {**AutomationBriefForm.Meta.labels, "application_scope": "Application setup"}
+        widgets = {**AutomationBriefForm.Meta.widgets, "application_scope": ApplicationScopeSelect}
+        help_texts = {**AutomationBriefForm.Meta.help_texts, "application_scope": "The hackathon version supports web applications. Desktop and mixed web/desktop workflows are coming later."}
 
     def clean_application_scope(self):
         scope = self.cleaned_data["application_scope"]
