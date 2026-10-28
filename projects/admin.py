@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Project, StepElementReference, WorkflowStep
+from .models import Dataset, DatasetRow, Project, ProjectInput, StepElementReference, WorkflowStep
 
 
 class ReadOnlyAdmin(admin.ModelAdmin):
@@ -28,8 +28,8 @@ class ProjectAdmin(ReadOnlyAdmin):
 
 @admin.register(WorkflowStep)
 class WorkflowStepAdmin(ReadOnlyAdmin):
-    list_display = ('name', 'project', 'position', 'window', 'updated_at')
-    list_select_related = ('project', 'window')
+    list_display = ('name', 'project', 'position', 'window', 'action', 'input_column', 'updated_at')
+    list_select_related = ('project', 'window', 'input_column')
     search_fields = ('name', 'instruction', 'project__name')
     list_filter = ('project',)
 
@@ -39,3 +39,22 @@ class StepElementReferenceAdmin(ReadOnlyAdmin):
     list_display = ('step', 'element', 'created_at')
     list_select_related = ('step', 'element')
     search_fields = ('step__name', 'element__name')
+
+
+@admin.register(ProjectInput)
+class ProjectInputAdmin(ReadOnlyAdmin):
+    list_display = ('key', 'project', 'data_type', 'required')
+    list_filter = ('project', 'data_type', 'required')
+    search_fields = ('key', 'description', 'project__name')
+
+
+@admin.register(Dataset)
+class DatasetAdmin(ReadOnlyAdmin):
+    list_display = ('name', 'project', 'status', 'row_count', 'invalid_row_count', 'created_at')
+    list_filter = ('project', 'status')
+
+
+@admin.register(DatasetRow)
+class DatasetRowAdmin(ReadOnlyAdmin):
+    list_display = ('dataset', 'row_number')
+    list_filter = ('dataset',)

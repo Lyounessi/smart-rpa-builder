@@ -6,6 +6,14 @@
 <p class="muted">Application setup: {{ project.get_application_scope_display }}{% if project.application_scope == "multiple" %} · Web only for now{% endif %}</p>
 <p>{{ project.description|linebreaksbr }}</p>
 <a href="{% url 'project-edit' project.pk %}" hx-get="{% url 'project-edit' project.pk %}" hx-target="#editor">Edit project</a>
+<section><h2>Process inputs</h2><p>Define the data each workflow run will receive. Reference these keys in your step instructions, such as “Fill using supplier_name”.</p>
+<div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Required</th><th>Description</th><th></th></tr></thead><tbody>
+{% for input in project.inputs.all %}<tr><td><code>{{ input.key }}</code></td><td>{{ input.get_data_type_display }}</td><td>{{ input.required|yesno:"Yes,No" }}</td><td>{{ input.description }}</td><td><a href="{% url 'input-edit' project.pk input.pk %}" hx-get="{% url 'input-edit' project.pk input.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Edit</a></td></tr>{% empty %}<tr><td colspan="5">No inputs yet. Add keys such as name or document_type.</td></tr>{% endfor %}
+</tbody></table></div>
+<a class="button secondary" href="{% url 'input-create' project.pk %}" hx-get="{% url 'input-create' project.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Add input</a></section>
+<section><h2>Input datasets</h2><p>Upload CSV or XLSX records, review validation, and confirm the dataset. Execution and results will follow in the runner milestone.</p>
+<a class="button secondary" href="{% url 'dataset-upload' project.pk %}">Upload input file</a>
+<div class="grid">{% for dataset in project.datasets.all %}<article><h3><a href="{% url 'dataset-detail' project.pk dataset.pk %}">{{ dataset.name }}</a></h3><p>{{ dataset.get_status_display }} · {{ dataset.row_count }} rows · {{ dataset.invalid_row_count }} invalid</p><small>{{ dataset.created_at|date:"M j, Y H:i" }}</small></article>{% empty %}<p>No datasets uploaded.</p>{% endfor %}</div></section>
 <section><h2>Target applications</h2><p>Starting URLs launch your application. Captured elements will retain their own capture URLs.</p>
 <div class="grid">{% for window in project.windows.all %}<article><h3>{{ window.name }}</h3><p class="url">{{ window.target_url }}</p><a href="{% url 'window-edit' project.pk window.pk %}" hx-get="{% url 'window-edit' project.pk window.pk %}" hx-target="#editor">Edit application</a></article>{% empty %}<p>No applications yet. Add your target website to get started.</p>{% endfor %}</div>
 <a class="button secondary" href="{% url 'window-create' project.pk %}" hx-get="{% url 'window-create' project.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Add target application</a></section>

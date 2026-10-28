@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block content %}
+<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a>
+<h1>Upload input records</h1>
+{% if schema %}
+<p>The first row must contain these column headers exactly (any order):</p>
+<p>{% for input in schema %}<code>{{ input.key }}</code>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+<p>Each remaining row is one future workflow execution. Missing required values and invalid numbers appear in the preview. Keep identifiers with leading zeros in Excel text cells. Do not upload credentials.</p>
+<section class="editor"><form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button>Upload and preview</button></form></section>
+{% else %}<p>Define project inputs before uploading a dataset.</p><a class="button" href="{% url 'input-create' project.pk %}">Add input</a>{% endif %}
+{% endblock %}
