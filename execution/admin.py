@@ -15,8 +15,8 @@ class BuildAdmin(ReadOnlyAdmin):
 
 @admin.register(RobotRun)
 class RunAdmin(ReadOnlyAdmin):
-    list_display = ('id', 'robot_name', 'build', 'state', 'dataset', 'started_at', 'finished_at')
-    list_filter = ('state',)
+    list_display = ('id', 'robot_name', 'build', 'is_test', 'state', 'dataset', 'started_at', 'finished_at')
+    list_filter = ('state','is_test')
 
 
 @admin.register(RowAttempt)

@@ -52,7 +52,10 @@ class DjangoQueue:
         self.run = run
 
     def rows(self):
-        return [InputRow(str(row.pk), row.values) for row in self.run.dataset.rows.filter(processing_status='pending', errors=[])]
+        rows = self.run.dataset.rows.filter(processing_status='pending', errors=[])
+        if self.run.is_test:
+            rows = rows[:self.run.test_options['row_limit']]
+        return [InputRow(str(row.pk), row.values) for row in rows]
 
     def emit(self, kind, row=None, step=None, result=None, summary=None, action_status=None):
         with transaction.atomic():

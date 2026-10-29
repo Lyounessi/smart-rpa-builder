@@ -6,7 +6,7 @@ Users will define workflows through screenshots, captured interface elements, an
 
 The planned platform will support inspecting web and Windows desktop applications, running robots, reviewing execution logs, and refining workflows.
 
-> **Status:** Workflow editing, automation briefs, the web inspector, CSV/XLSX datasets, the robot framework/catalog, and budgeted Muse clarification, specification confirmation and statically validated draft generation are implemented. Explicit testing/activation of Muse drafts, desktop inspection, OCR, and result exports are deferred.
+> **Status:** Workflow editing, automation briefs, the web inspector, CSV/XLSX datasets, the robot framework/catalog, and budgeted Muse clarification, specification confirmation and statically validated draft generation are implemented. Explicit tests of reviewed Muse drafts are available. Automatic production activation, desktop inspection, OCR, and result exports are deferred.
 
 ## Local setup (Windows PowerShell)
 
@@ -31,7 +31,9 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
-Steps support **Read text → save output** with a named result such as `weather_information`. Extracted text is stored per row attempt and displayed in run results, separately from uploaded input values. See [workflow outputs and framework API](docs/workflow-outputs.md). Muse uses framework contract 1.1; older confirmations require a fresh review. Generated drafts still require explicit testing/activation in the next milestone.
+**Phase 5:** Reviewed draft versions can now be explicitly tested on 1–5 pending input rows from their version page. Test history, saved outputs and timing KPIs remain linked to that version; drafts are not automatically activated. See [draft testing, CLI and the isolated greeting demo](docs/draft-testing.md). Testing runs trusted reviewed Python with local permissions; static checks are not a sandbox.
+
+Steps support **Read text → save output** with a named result such as `weather_information`. Extracted text is stored per row attempt and displayed in run results, separately from uploaded input values. See [workflow outputs and framework API](docs/workflow-outputs.md). Muse uses framework contract 1.1; older confirmations require a fresh review. Generated drafts can now be explicitly tested from their version page; production activation remains deferred.
 
 - One project represents one workflow, with a name and optional description.
 - Project creation and editing include an application setup: web application or multiple applications (web only for now). Desktop is visible but disabled and rejected server-side until desktop support is implemented. Existing projects default to web. This setup describes workflow intent; application windows remain separate reusable entities, and it does not impose a window-count limit.
@@ -138,7 +140,7 @@ A selection produces a draft tied to its exact step. Saving creates a reusable e
 - Only the main document of the original tab is supported. New tabs/popups are closed; iframe internals, closed shadow roots, canvas, embedded viewers, and complex custom controls are excluded. OCR and visual targeting are future possibilities, not active fallbacks.
 - Click interception is best effort for ordinary HTML controls. Browser-native UI and unusual application event handlers are outside the MVP guarantee. Work on non-critical pages when capturing.
 - The target browser must run in the interactive Windows host session. Docker/headless hosting, multi-user inspection, and production deployment are outside this milestone.
-- Muse clarification now receives filtered ordered instructions, element IDs, highlighted screenshots and structured selectors with a compact framework contract. Confirmed specifications can generate drafts; explicit testing and activation remain deferred. No RAG or vector database is used.
+- Muse clarification now receives filtered ordered instructions, element IDs, highlighted screenshots and structured selectors with a compact framework contract. Confirmed specifications can generate drafts, followed by explicit reviewed tests. Production activation remains deferred. No RAG or vector database is used.
 
 ### Browser checks
 

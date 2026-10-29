@@ -8,6 +8,7 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('robots/<int:robot_id>/builds/<int:version>/test/', robot_views.test_build, name='robot-build-test'),
     path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
     path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),
     path('projects/<int:project_id>/build/start/', build_views.start, name='muse-build-start'),

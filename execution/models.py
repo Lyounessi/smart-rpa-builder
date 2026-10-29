@@ -38,6 +38,10 @@ class RobotBuild(Timestamped):
 
 
 class RobotRun(Timestamped):
+    is_test = models.BooleanField(default=False)
+    test_options = models.JSONField(default=dict)
+    reviewed_source_digest = models.CharField(max_length=64, blank=True)
+    source_reviewed_at = models.DateTimeField(null=True, blank=True)
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     dataset = models.ForeignKey('projects.Dataset', on_delete=models.PROTECT, related_name='runs')
     robot_name = models.CharField(max_length=240)

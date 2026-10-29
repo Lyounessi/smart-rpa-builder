@@ -24,7 +24,7 @@ After response/schema and known-secret checks, the paid response is saved before
 
 Successful output creates a new `execution.RobotBuild` with `origin=muse`, `is_draft=True`, `status=validated` (static checks only), source text/digest, frozen specification/hash, contract version/hash, assumptions and report. The job links to this version. Find it from the build page or `/robots/` → robot → version. Sources, assumptions and diagnostics are rendered as escaped text.
 
-Generation never activates the build, registers a generated class, creates a RobotRun, imports source, opens a browser, or sends email. The existing CLI continues to use the trusted manual registry. Explicit testing/activation belongs to Phase 5.
+Generation never activates the build, registers a generated class, creates a RobotRun, imports source, opens a browser, or sends email. The existing CLI continues to use the trusted manual registry. Phase 5 now offers [explicit reviewed draft tests](draft-testing.md); generation itself still never executes a robot. Production activation remains deferred.
 
 Existing projects/builds remain valid through additive migrations. `GenerationJob` groups one initial generation and up to two repairs; existing `BuildOperation` records now distinguish clarification/generation/repair and retain response data and validation errors. `MuseRequest` links to each individual attempt, preserving usage accounting. Django admin exposes job and attempt records read-only.
 
