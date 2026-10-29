@@ -31,7 +31,7 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
-**Manual inputs:** Create a dataset without a file, add valid pending inputs, edit unclaimed pending rows, or duplicate completed inputs into new pending rows. Forms use the dataset's saved schema and share upload validation. New executions snapshot their claimed inputs so subsequent edits do not change prior results. See [manual input management and history preservation](docs/manual-inputs.md).
+**Input CRUD:** Project input definitions support Add, View, Edit and Delete, with mapped definitions protected. Dataset inputs support Add, View, Edit and recoverable Delete/Restore, plus duplication of completed rows into new pending inputs. Forms use the dataset's saved schema and share upload validation. New executions snapshot their claimed inputs so subsequent edits do not change prior results. See [manual input management and history preservation](docs/manual-inputs.md).
 
 **Phase 5:** Reviewed draft versions can now be explicitly tested on 1–5 pending input rows from their version page. Test history, saved outputs and timing KPIs remain linked to that version; drafts are not automatically activated. See [draft testing, CLI and the isolated greeting demo](docs/draft-testing.md). Testing runs trusted reviewed Python with local permissions; static checks are not a sandbox.
 
@@ -54,10 +54,10 @@ Steps support **Read text → save output** with a named result such as `weather
 1. Open a project and choose **Add input**. Define keys such as `supplier_name` and `document_type`, their description, text/number type, and whether a value is required. Keys use lowercase letters, digits and underscores, starting with a letter; they are unique per project. Reference the same keys in workflow instructions.
 2. Choose **Upload input file**, name the dataset, and upload UTF-8 comma-separated CSV or a single-worksheet `.xlsx` workbook.
 3. The first row must contain every defined input key exactly once, with no additional columns. Column order can differ. Required means each record needs a non-empty value; optional columns must still have headers.
-4. Review the paginated table (50 records per page). Empty required values and invalid numbers show errors. Correct your source file and upload a new dataset if any rows are invalid.
+4. Review the paginated table (50 records per page). Empty required values and invalid numbers show errors. Edit invalid pending rows in the dataset, or correct your source file and upload a new dataset.
 5. Choose **Confirm dataset** when all records are valid. The dataset becomes ready for registered robots; confirmation alone executes nothing. Reopen it from the project's dataset list after restarting Django.
 
-Limits: 2 MB uploaded file, 1,000 data rows including blank rows, 30 inputs/columns, and 2,000 characters per cell. Completely blank rows are skipped. CSV uses UTF-8 (BOM accepted), commas and standard quoting. XLSX formulas and error cells are rejected; paste values before uploading. Multiple worksheets, legacy `.xls`, macros, encrypted workbooks, column mapping, in-app record editing, deletion, and result downloads are outside this milestone.
+Limits: 2 MB uploaded file, 1,000 data rows including blank rows, 30 inputs/columns, and 2,000 characters per cell. Completely blank rows are skipped. CSV uses UTF-8 (BOM accepted), commas and standard quoting. XLSX formulas and error cells are rejected; paste values before uploading. Multiple worksheets, legacy `.xls`, macros, encrypted workbooks, column mapping, bulk deletion, and result downloads are outside this milestone. Individual input CRUD is available as described above.
 
 Cells and headers are trimmed. Text identifiers preserve leading zeros when supplied as text; Excel numeric formatting is not preserved, so store identifiers as text cells. Numbers must be finite, at most 30 digits, with a decimal point and no thousands separators. Decimal values are stored as strings with the number type in the schema to avoid floating-point precision loss. Optional empty values are empty strings.
 

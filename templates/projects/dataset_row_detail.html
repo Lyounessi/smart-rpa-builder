@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block title %}Input {{ row.row_number }}{% endblock %}
+{% block content %}<a href="{% url 'dataset-detail' project.pk dataset.pk %}">← {{ dataset.name }}</a><h1>Input {{ row.row_number }}</h1>
+<p>{% if row.deleted_at %}Deleted at {{ row.deleted_at }} · previous state: {% endif %}{{ row.get_processing_status_display }}</p>
+<dl>{% for key,value in row.values.items %}<dt>{{ key }}</dt><dd>{{ value|linebreaksbr }}</dd>{% endfor %}</dl>
+{% if row.errors %}<ul class="errorlist">{% for error in row.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% endif %}
+{% if row.deleted_at %}<a href="{% url 'dataset-row-restore' project.pk dataset.pk row.pk %}">Restore input</a>{% elif not row.claimed_by_id and row.processing_status != 'in_progress' %}
+{% if row.processing_status == 'pending' %}<a href="{% url 'dataset-row-edit' project.pk dataset.pk row.pk %}">Edit</a>{% else %}<a href="{% url 'dataset-row-duplicate' project.pk dataset.pk row.pk %}">Duplicate as new pending input</a>{% endif %} · <a href="{% url 'dataset-row-delete' project.pk dataset.pk row.pk %}">Delete input</a>{% else %}<p>This input is locked by an execution.</p>{% endif %}
+<h2>Recent execution attempts</h2>{% for attempt in attempts %}<article><a href="{% url 'run-detail' attempt.run_id %}">{{ attempt.created_at }} · {{ attempt.outcome|default:'Unconfirmed' }}</a>
+<h3>Original inputs</h3>{% if attempt.input_snapshot is not None %}<dl>{% for key,value in attempt.input_snapshot.items %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl>{% else %}<p>Not recorded</p>{% endif %}
+<h3>Outputs</h3>{% for key,value in attempt.outputs.items %}<p>{{ key }}: {{ value }}</p>{% empty %}<p>No outputs recorded.</p>{% endfor %}<p>{{ attempt.message }}</p></article>{% empty %}<p>No execution attempts.</p>{% endfor %}{% endblock %}

@@ -8,7 +8,7 @@ from django.db import close_old_connections, transaction
 from django.db.models import F
 from django.utils import timezone
 
-from projects.models import DatasetRow
+from projects.models import Dataset, DatasetRow
 from robot_framework.contracts import ExecutionCancelled, InputRow
 from .models import ActionRecord, ProgressEvent, RobotRun, RowAttempt
 
@@ -35,14 +35,19 @@ def release_claims(run, recovered=False):
 
 @transaction.atomic
 def create_run(dataset, name, build=None):
+    if dataset.status != 'ready':
+        raise ValueError('Choose a confirmed, valid dataset.')
+    # Serialize queue creation with input deletion/restoration for this dataset.
+    Dataset.objects.filter(pk=dataset.pk).update(row_count=F('row_count'))
+    dataset.refresh_from_db(fields=['status'])
     # The unique active slot is authoritative even when two command processes race.
     for stale in RobotRun.objects.filter(active_slot='local', heartbeat__lt=timezone.now() - timedelta(seconds=LEASE_SECONDS)):
         release_claims(stale, recovered=True)
         stale.state, stale.active_slot, stale.message = 'failed', None, 'Worker lease expired. Check external effects before retrying.'
         stale.save(update_fields=['state', 'active_slot', 'message'])
-    if dataset.status != 'ready' or dataset.rows.exclude(errors=[]).exists():
+    if dataset.status != 'ready' or dataset.rows.filter(deleted_at__isnull=True).exclude(errors=[]).exists():
         raise ValueError('Choose a confirmed, valid dataset.')
-    if not dataset.rows.filter(processing_status='pending', errors=[]).exists():
+    if not dataset.rows.filter(processing_status='pending', errors=[],deleted_at__isnull=True).exists():
         raise ValueError('No pending rows remain in this dataset.')
     if build is not None and (build.robot.project_id != dataset.project_id or build.configuration.get('robot_name') != name):
         raise ValueError('Build does not belong to this project and robot.')
@@ -55,7 +60,7 @@ class DjangoQueue:
         self.selected_rows = {}
 
     def rows(self):
-        rows = self.run.dataset.rows.filter(processing_status='pending', errors=[])
+        rows = self.run.dataset.rows.filter(processing_status='pending', errors=[],deleted_at__isnull=True)
         if self.run.is_test:
             rows = rows[:self.run.test_options['row_limit']]
         selected = [InputRow(str(row.pk), row.values) for row in rows]
@@ -78,7 +83,7 @@ class DjangoQueue:
             elif kind == 'row_started':
                 if current.cancel_requested:
                     raise ExecutionCancelled()
-                claimed = DatasetRow.objects.filter(pk=row, dataset=current.dataset, processing_status='pending').update(processing_status='in_progress', claimed_by=current)
+                claimed = DatasetRow.objects.filter(pk=row, dataset=current.dataset, processing_status='pending',deleted_at__isnull=True).update(processing_status='in_progress', claimed_by=current)
                 if claimed != 1:
                     raise RuntimeError('Row is no longer available.')
                 values = DatasetRow.objects.get(pk=row,dataset=current.dataset).values

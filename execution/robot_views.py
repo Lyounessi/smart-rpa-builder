@@ -46,7 +46,7 @@ def robot_list(request):
     latest_build = RobotBuild.objects.filter(robot_id=OuterRef('pk')).order_by('-version')
     latest_run = RobotRun.objects.filter(dataset__project_id=OuterRef('project_id')).order_by('-created_at')
     pending = DatasetRow.objects.filter(dataset__project_id=OuterRef('project_id'), dataset__status='ready',
-        errors=[], processing_status='pending').values('dataset__project_id').annotate(total=Count('pk')).values('total')
+        errors=[], processing_status='pending',deleted_at__isnull=True).values('dataset__project_id').annotate(total=Count('pk')).values('total')
     completed = RowAttempt.objects.filter(run__dataset__project_id=OuterRef('project_id')).filter(
         Q(business_completed_at__isnull=False) | Q(outcome='OK')).values('run__dataset__project_id').annotate(total=Count('row_id', distinct=True)).values('total')
     robots = Robot.objects.select_related('project').annotate(
@@ -89,7 +89,7 @@ def robot_detail(request, robot_id):
             attempt.cells = [attempt.input_snapshot.get(key, '') if attempt.input_snapshot is not None else 'Not recorded'
                              for key in run.dataset.headers]
             attempt.elapsed = duration(seconds(attempt.started_at, attempt.finished_at))
-    queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[]).aggregate(
+    queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[],deleted_at__isnull=True).aggregate(
         pending=Count('pk', filter=Q(processing_status='pending')), in_progress=Count('pk', filter=Q(processing_status='in_progress')),
         done=Count('pk', filter=Q(processing_status='done')))
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),

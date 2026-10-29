@@ -8,6 +8,11 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('projects/<int:project_id>/inputs/<int:input_id>/', input_views.input_detail, name='input-detail'),
+    path('projects/<int:project_id>/inputs/<int:input_id>/delete/', input_views.input_delete, name='input-delete'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/', input_views.dataset_row_detail, name='dataset-row-detail'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/delete/', input_views.dataset_row_delete, name='dataset-row-delete'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/restore/', input_views.dataset_row_delete, {'restore':True}, name='dataset-row-restore'),
     path('projects/<int:project_id>/datasets/new/', input_views.dataset_create, name='dataset-create'),
     path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/new/', input_views.dataset_row_edit, name='dataset-row-create'),
     path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/edit/', input_views.dataset_row_edit, name='dataset-row-edit'),

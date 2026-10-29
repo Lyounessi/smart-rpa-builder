@@ -151,6 +151,10 @@ class ManualDatasetForm(forms.Form):
     name = forms.CharField(max_length=200,label='Dataset name')
 
 
+class InputActionForm(forms.Form):
+    revision = forms.CharField(widget=forms.HiddenInput)
+
+
 class DatasetRowForm(forms.Form):
     revision = forms.CharField(required=False,widget=forms.HiddenInput)
 
