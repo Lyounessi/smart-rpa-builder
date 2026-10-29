@@ -1,6 +1,7 @@
 """Budgeted draft generation. Generated source is data, never imported or executed."""
 from copy import deepcopy
 from hashlib import sha256
+import logging
 
 from django.db import IntegrityError, OperationalError, transaction
 from django.db.models import Max
@@ -16,6 +17,8 @@ from .conversation import check_idle, check_revision, guard_text, local_issues, 
 from .generation_schema import GenerationResponse
 from .models import BuildMessage, BuildOperation, BuildQuestion, BuildSession, GenerationJob, MuseBudget, MuseRequest
 from .validation import validate_source
+
+logger = logging.getLogger(__name__)
 
 
 def require_confirmed(session, job=None):
@@ -151,22 +154,38 @@ def run_generation(job_id, *, service=None):
             return
         GenerationJob.objects.filter(pk=job_id).update(state='running')
     previous, errors = None, None
+    stage = 'context_check'
     try:
         for attempt in range(3):
+            stage = 'context_check'
             job = GenerationJob.objects.select_related('session__snapshot','session__project','snapshot').get(pk=job_id)
             require_confirmed(job.session, job)
+            stage = 'provider_request'
             result = (service or MuseService()).generate_draft(job, build_operation=operation, previous=previous, errors=errors)
+            stage = 'response_check'
             guard_text(result.text)
             try:
                 response = GenerationResponse.model_validate_json(result.text)
                 payload = response.model_dump()
-                errors = [] if response.clarification_questions else validate_source(response.source_code,
-                    robot_name=job.robot_name, specification=job.confirmed_specification)
             except ValidationError:
                 response = None
                 payload = {'invalid_response':result.text[:65536]}
-                errors = ['Return the exact structured response with bounded source_code, assumptions and clarification_questions.']
+            # Keep the paid response even if validation or saving subsequently fails.
+            # Never persist responses containing known configured credentials.
+            require_confirmed(job.session, job)
+            stage = 'response_save'
+            if BuildOperation.objects.filter(pk=operation.pk, active_slot='local', status='running').update(response_payload=payload) != 1:
+                raise MuseError('operation_closed', 'Generation operation was closed. Response discarded.')
+            stage = 'static_validation'
+            errors = ([] if response.clarification_questions else validate_source(response.source_code,
+                robot_name=job.robot_name, specification=job.confirmed_specification)) if response else [
+                    'Return the exact structured response with bounded source_code, assumptions and clarification_questions.']
+            stage = 'draft_save'
             with transaction.atomic():
+                # SQLite has no SELECT FOR UPDATE. Acquire write ownership before
+                # reading so the heartbeat cannot cause a read-to-write lock upgrade.
+                if BuildOperation.objects.filter(pk=operation.pk, active_slot='local', status='running').update(heartbeat=timezone.now()) != 1:
+                    raise MuseError('operation_closed', 'Generation operation was closed. Response discarded.')
                 job.session = BuildSession.objects.select_for_update().select_related('project','snapshot').get(pk=job.session_id)
                 require_confirmed(job.session, job)
                 operation.refresh_from_db()
@@ -194,5 +213,15 @@ def run_generation(job_id, *, service=None):
         MuseRequest.objects.filter(build_operation=operation, outcome='success').update(
             outcome='stale' if error.code == 'stale_specification' else 'failed', error_code=error.code)
         fail_generation(job_id, error.message, stale=error.code in {'stale_specification','unconfirmed_specification'})
-    except Exception:
-        fail_generation(job_id, 'Generation stopped unexpectedly. Check the local worker; uncertain API charges remain reserved. No draft was activated.')
+    except Exception as error:
+        # Log identifiers/types only: exception messages and trace locals may contain
+        # source, inputs, provider payloads or secrets.
+        category = type(error).__name__
+        logger.error('Muse generation %s failed at %s (%s)', job_id, stage, category)
+        request = MuseRequest.objects.filter(build_operation=operation).first()
+        MuseRequest.objects.filter(build_operation=operation, outcome='success').update(outcome='failed', error_code='local_processing')
+        accounting = ('Recorded API usage is retained; no additional request was sent.' if request and request.usage_known
+            else 'Any uncertain API reservation is retained; no automatic retry was made.')
+        message = f'Local generation processing failed at {stage} ({category}). {accounting} No draft was activated.'
+        BuildOperation.objects.filter(pk=operation.pk).update(validation_errors=[f'Local processing failure: {stage} ({category}).'])
+        fail_generation(job_id, message)

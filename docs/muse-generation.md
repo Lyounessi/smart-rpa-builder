@@ -18,6 +18,8 @@ These are conservative compatibility checks, not a Python sandbox, full control-
 
 An invalid structured response or static-check failure permits at most **two repair requests**, so each job makes at most three requests. Each attempt is saved with diagnostics. A provider failure, timeout, stale specification or exhausted budget stops the job without an automatic network retry. Partial/uncertain usage retains its reservation. A project, capture, contract or confirmed-specification change before/during generation rejects the result. No prior version is overwritten.
 
+After response/schema and known-secret checks, the paid response is saved before static validation and draft creation. A local processing failure keeps it available in attempt history, reports its stage and exception type, and marks the request as a local failure while preserving settled usage. Logs contain job IDs/stages/types rather than exception messages or source. SQLite draft transactions acquire write ownership before reads to avoid a heartbeat-induced read-to-write lock upgrade. Earlier failed jobs with no saved response cannot reconstruct that source locally.
+
 ## Draft storage and execution boundary
 
 Successful output creates a new `execution.RobotBuild` with `origin=muse`, `is_draft=True`, `status=validated` (static checks only), source text/digest, frozen specification/hash, contract version/hash, assumptions and report. The job links to this version. Find it from the build page or `/robots/` → robot → version. Sources, assumptions and diagnostics are rendered as escaped text.

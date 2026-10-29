@@ -157,6 +157,36 @@ class ROBOT_SUPPLIER_TEST(BaseRobot):
         self.assertEqual(service.generate_draft.call_count, 1)
         self.assertFalse(RobotBuild.objects.exists())
 
+    def test_local_validation_failure_preserves_paid_response_and_safe_diagnostic(self):
+        operation = queue_generation(self.session)
+        client = Mock()
+        client.request.return_value = SimpleNamespace(status='completed', output_text=self.response(),
+            usage=SimpleNamespace(input_tokens=100,output_tokens=100,input_tokens_details=SimpleNamespace(cached_tokens=0)))
+        with patch('muse_builder.generation.validate_source',side_effect=TypeError('fictional-api-key')):
+            with self.assertLogs('muse_builder.generation',level='ERROR') as logs:
+                run_generation(operation.generation_id,service=MuseService(client=client))
+        operation.refresh_from_db()
+        self.assertEqual(operation.response_payload['source_code'],self.source)
+        self.assertIn('static_validation (TypeError)', operation.error_message)
+        self.assertIn('Recorded API usage is retained',operation.error_message)
+        self.assertNotIn('fictional-api-key', ''.join(logs.output) + operation.error_message)
+        request = MuseRequest.objects.get(build_operation=operation)
+        self.assertEqual(request.error_code,'local_processing')
+        self.assertTrue(request.usage_known)
+        self.assertIsNone(request.active_slot)
+        self.assertEqual(client.request.call_count,1)
+        self.assertFalse(RobotBuild.objects.exists())
+
+    def test_local_save_failure_retains_source_outside_rolled_back_transaction(self):
+        operation = queue_generation(self.session)
+        with patch('muse_builder.generation.save_draft',side_effect=RuntimeError('internal detail')):
+            with self.assertLogs('muse_builder.generation',level='ERROR'):
+                run_generation(operation.generation_id,service=self.service(self.response()))
+        operation.refresh_from_db()
+        self.assertEqual(operation.response_payload['source_code'],self.source)
+        self.assertIn('draft_save (RuntimeError)',operation.error_message)
+        self.assertFalse(RobotBuild.objects.exists())
+
     def test_post_only_scoped_csrf_and_confirmed_revision_required(self):
         url = reverse('muse-generate',args=[self.project.pk,self.session.pk])
         self.assertEqual(self.client.get(url).status_code, 405)
