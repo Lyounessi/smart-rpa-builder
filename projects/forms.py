@@ -145,3 +145,36 @@ class DatasetUploadForm(forms.Form):
     name = forms.CharField(max_length=200, label='Dataset name')
     file = forms.FileField(label='CSV or Excel file', widget=forms.ClearableFileInput(attrs={'accept':'.csv,.xlsx'}),
                            help_text='UTF-8 CSV or one-sheet XLSX. Maximum 2 MB, 1,000 rows, 30 columns. No formulas.')
+
+
+class ManualDatasetForm(forms.Form):
+    name = forms.CharField(max_length=200,label='Dataset name')
+
+
+class DatasetRowForm(forms.Form):
+    revision = forms.CharField(required=False,widget=forms.HiddenInput)
+
+    def __init__(self,*args,dataset,values=None,revision='',**kwargs):
+        super().__init__(*args,**kwargs)
+        self.schema = dataset.schema_snapshot
+        self.initial['revision'] = revision
+        for definition in self.schema:
+            name = 'value_' + definition['key']
+            self.fields[name] = forms.CharField(required=definition['required'],max_length=2000,
+                label=definition['key'],help_text=definition['description'] + (' (Number)' if definition['data_type']=='number' else ''))
+            self.initial[name] = (values or {}).get(definition['key'],'')
+
+    def clean(self):
+        from .datasets import normalize_value
+        data = super().clean()
+        self.input_values = {}
+        for definition in self.schema:
+            name = 'value_' + definition['key']
+            if name not in data:
+                continue
+            value,error = normalize_value(data[name],definition)
+            if error:
+                self.add_error(name,error)
+            else:
+                self.input_values[definition['key']] = value
+        return data

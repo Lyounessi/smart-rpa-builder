@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}{{ title }}{% endblock %}
+{% block content %}<a href="{% url 'dataset-detail' project.pk dataset.pk %}">← {{ dataset.name }}</a><h1>{{ title }}</h1>
+<p>Use this dataset's saved input fields. Changes affect future executions; earlier results keep their recorded inputs. New inputs start pending.</p>
+{% if blocked %}<p role="alert">{{ blocked }}</p>{% else %}<form method="post">{% csrf_token %}{{ form.as_p }}<button>Save input</button></form>{% endif %}{% endblock %}

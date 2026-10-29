@@ -60,6 +60,7 @@ class RobotRun(Timestamped):
 
 
 class RowAttempt(Timestamped):
+    input_snapshot = models.JSONField(null=True,blank=True)
     outputs = models.JSONField(default=dict)
     run = models.ForeignKey(RobotRun, on_delete=models.CASCADE, related_name='attempts')
     row = models.ForeignKey('projects.DatasetRow', on_delete=models.PROTECT)

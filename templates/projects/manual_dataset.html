@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% block title %}Create dataset manually{% endblock %}
+{% block content %}<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a><h1>Create dataset manually</h1>
+<p>Name the dataset, then add inputs. It will use these saved definitions:</p><ul>{% for input in schema %}<li>{{ input.key }} · {{ input.data_type }} · {{ input.required|yesno:'required,optional' }}</li>{% empty %}<li>Add project input definitions first.</li>{% endfor %}</ul>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>Create dataset</button></form>{% endblock %}

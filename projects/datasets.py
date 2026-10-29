@@ -18,6 +18,26 @@ MAX_COLUMNS = 30
 MAX_CELL_LENGTH = 2000
 
 
+def normalize_value(raw, definition):
+    """Shared scalar validation for uploaded and manually entered dataset values."""
+    value = raw.strip()
+    key = definition['key']
+    if len(value) > MAX_CELL_LENGTH:
+        raise ValidationError('Each cell must contain at most 2,000 characters.')
+    error = None
+    if not value and definition['required']:
+        error = f'{key}: required value is missing.'
+    elif value and definition['data_type'] == 'number':
+        try:
+            numeric = Decimal(value)
+            if not numeric.is_finite() or len(numeric.as_tuple().digits) > 30 or abs(numeric.as_tuple().exponent) > 100:
+                raise InvalidOperation
+            value = str(numeric)
+        except InvalidOperation:
+            error = f'{key}: enter a finite number with at most 30 digits; use a decimal point, without thousands separators.'
+    return value, error
+
+
 def read_rows(upload):
     if upload.size > MAX_BYTES:
         raise ValidationError('File is too large. Maximum size is 2 MB.')
@@ -108,21 +128,12 @@ def parse_dataset(upload, schema):
             raise ValidationError(f'Row {number} has a different number of columns from the header.')
         values, errors = {}, []
         for key, raw in zip(headers, row):
-            value = raw.strip()
-            definition = definitions[key]
-            if len(value) > MAX_CELL_LENGTH:
-                raise ValidationError(f'Row {number}: each cell must contain at most 2,000 characters.')
-            if not value and definition['required']:
-                errors.append(f'{key}: required value is missing.')
-            elif value and definition['data_type'] == 'number':
-                try:
-                    numeric = Decimal(value)
-                    if not numeric.is_finite() or len(numeric.as_tuple().digits) > 30 or abs(numeric.as_tuple().exponent) > 100:
-                        raise InvalidOperation
-                    # Preserve decimal precision; the future runner receives schema + values.
-                    value = str(numeric)
-                except InvalidOperation:
-                    errors.append(f'{key}: enter a finite number with at most 30 digits; use a decimal point, without thousands separators.')
+            try:
+                value, error = normalize_value(raw, definitions[key])
+            except ValidationError:
+                raise ValidationError(f'Row {number}: each cell must contain at most 2,000 characters.') from None
+            if error:
+                errors.append(error)
             values[key] = value
         records.append({'row_number':number, 'values':values, 'errors':errors})
     if not records:
