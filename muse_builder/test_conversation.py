@@ -68,6 +68,7 @@ class ConversationTests(TestCase):
     def test_get_is_free_and_start_only_queues_a_worker(self):
         response = self.client.get(reverse('muse-build', args=[self.project.pk]))
         self.assertContains(response, 'Review workflow with Muse')
+        self.assertContains(response, 'Generate draft robot — review required')
         self.assertEqual(BuildSession.objects.count(), 0)
         with patch('muse_builder.conversation.launch') as launch:
             response = self.client.post(reverse('muse-build-start',args=[self.project.pk]))
@@ -87,6 +88,7 @@ class ConversationTests(TestCase):
         self.assertEqual(self.project.success_criteria, '')
         page = self.client.get(reverse('muse-build',args=[self.project.pk]))
         self.assertContains(page, 'What proves success?')
+        self.assertContains(page, 'Generate draft robot — confirmation required')
         self.assertNotContains(page, 'hx-trigger="every 2s"')
 
     def test_proposals_need_confirmation_and_generation_needs_final_confirmation(self):
