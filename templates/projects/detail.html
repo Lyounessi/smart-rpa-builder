@@ -6,6 +6,7 @@
 <p class="muted">Application setup: {{ project.get_application_scope_display }}{% if project.application_scope == "multiple" %} · Web only for now{% endif %}</p>
 <p>{{ project.description|linebreaksbr }}</p>
 <a href="{% url 'project-edit' project.pk %}" hx-get="{% url 'project-edit' project.pk %}" hx-target="#editor">Edit project</a>
+<a class="button secondary" href="{% url 'muse-build' project.pk %}">Build with Muse</a>
 <section aria-labelledby="automation-brief-title"><h2 id="automation-brief-title">Automation brief</h2>
 <p>Optional context for Muse, alongside your explicit workflow steps. Step targets, input mappings, and execution settings stay unchanged.</p>
 <article><h3>Goal</h3><p>{{ project.automation_goal|default:'Not specified'|linebreaksbr }}</p>

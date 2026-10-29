@@ -1,5 +1,7 @@
 # Muse Phase 2 — context snapshots and spending controls
 
+Phase 3 now reuses this boundary for [Build with Muse clarification and specification confirmation](muse-conversation.md). Its queued workers link each request to a review operation; generation remains deferred.
+
 Phase 2 prepares reproducible context and accounts for application API requests. It does not add conversational chat, code generation, automatic repairs, or automatic execution. Tests use mocked provider responses; no additional live check is required to use the local context builder.
 
 ## Context package
@@ -99,4 +101,4 @@ This marks the operation uncertain, retains its full monetary reservation, and m
 
 Tests use fake SDK transports/responses and fictional data. They cover stable/filterable context, image deduplication/integrity, known-secret checks, stale project/capture detection, usage/cached pricing, absent usage, timeout/rejection handling, output caps, active-operation exclusion, concurrent reservation races, spending limits, safe usage display and local-only snapshot preparation. No test sends a real API request, email or business transaction.
 
-Conversation state, three-round clarification limits, proposal confirmation, schema-constrained generation, two bounded repair attempts, draft build creation and reviewed-version execution are subsequent phases. Phase 2 provides the context/spending boundary they must reuse; it does not claim those flows are already implemented.
+Phase 3 now provides conversation state, three-round clarification limits and proposal/specification confirmation through this boundary. Schema-constrained code generation, two bounded code-repair attempts, draft build creation and reviewed-version execution remain subsequent milestones.

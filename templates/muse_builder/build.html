@@ -1,0 +1,2 @@
+{% extends 'base.html' %}{% block title %}Build with Muse · {{ project.name }}{% endblock %}
+{% block content %}<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a><h1>Build with Muse</h1><p>Clarify your saved workflow, review proposed changes, and confirm the specification. Robot generation comes in Phase 4.</p>{% include 'muse_builder/_build_workspace.html' %}{% endblock %}

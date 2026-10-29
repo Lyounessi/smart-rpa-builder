@@ -124,3 +124,13 @@ class MetaClientTests(SimpleTestCase):
         with override_settings(MUSE_APIKEY=''), self.assertRaises(CommandError) as caught:
             call_command('check_muse_connection')
         self.assertIn('[missing_key]', str(caught.exception))
+
+    def test_structured_responses_use_text_format_schema(self):
+        from .conversation_schema import provider_schema
+        self.make_client(self.success).request(input='Review workflow', max_output_tokens=1536,
+            instructions='Stable platform instructions', response_schema=provider_schema())
+        payload = json.loads(self.requests[0].content)
+        self.assertEqual(payload['text']['format']['type'], 'json_schema')
+        self.assertTrue(payload['text']['format']['strict'])
+        self.assertEqual(payload['instructions'], 'Stable platform instructions')
+        self.assertNotIn('response_format', payload)

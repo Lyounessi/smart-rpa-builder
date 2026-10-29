@@ -1,6 +1,6 @@
 # Muse integration — Phase 1: API connection
 
-Phase 2 is now implemented: see [context snapshots, usage ledger and spending controls](muse-context-budget.md). Run migrations before using the tracked connection check. Chat and robot generation remain deferred.
+Phases 2 and 3 are implemented: see [context snapshots and spending controls](muse-context-budget.md) and [Build with Muse clarification](muse-conversation.md). Run migrations before using the tracked connection check or review interface. Robot generation remains deferred.
 
 The backend uses the OpenAI Python SDK against Meta Model API at the fixed URL `https://api.meta.ai/v1`. The initial model is `muse-spark-1.3`, configurable through `META_MODEL`. This calls Meta's model API directly; it does not launch the Muse Code terminal agent or grant it shell, filesystem, browser, or email tools.
 
@@ -73,4 +73,4 @@ Checked on 2026-10-29:
 - [Responses API](https://dev.meta.ai/docs/protocols/responses): response format, stateless requests, minimal reasoning and output-token limits.
 - [Error handling](https://dev.meta.ai/docs/error-handling): provider status codes and SDK error categories.
 
-Filtered multimodal context, a versioned framework contract and usage/spending controls are implemented in Phase 2. Next phases add bounded clarification sessions, explicit specification confirmation, draft generation/static validation, and a separate reviewed-version test path.
+Filtered multimodal context, a versioned framework contract and usage/spending controls are implemented in Phase 2. Phase 3 adds bounded clarification sessions and explicit specification confirmation. Draft generation/static validation and a separate reviewed-version test path remain next.

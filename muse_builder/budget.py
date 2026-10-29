@@ -65,7 +65,7 @@ class SpendingPolicy:
         return money((CONTEXT_WINDOW * self.input_rate + output_tokens * self.output_rate) / MILLION)
 
 
-def reserve(operation, model, max_output_tokens, snapshot=None):
+def reserve(operation, model, max_output_tokens, snapshot=None, build_operation=None):
     policy = SpendingPolicy.load(model)
     if operation not in OPERATIONS or not isinstance(max_output_tokens, int) or isinstance(max_output_tokens, bool) or not 16 <= max_output_tokens <= policy.output_cap:
         raise MuseError('request_limit', 'Unsupported operation or output-token limit.')
@@ -82,7 +82,7 @@ def reserve(operation, model, max_output_tokens, snapshot=None):
             if updated != 1:
                 raise MuseError('budget_exhausted', 'The local spending limit cannot cover this conservative request reservation.')
             return MuseRequest.objects.create(snapshot=snapshot, operation=operation, model=model,
-                max_output_tokens=max_output_tokens, reserved_usd=amount, accounted_usd=amount, pricing=policy.pricing())
+                max_output_tokens=max_output_tokens, reserved_usd=amount, accounted_usd=amount, pricing=policy.pricing(), build_operation=build_operation)
     except (IntegrityError, OperationalError):
         raise MuseError('operation_active', 'Muse reservation is busy. No request was sent; try again later.') from None
 

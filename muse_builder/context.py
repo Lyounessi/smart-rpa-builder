@@ -146,7 +146,7 @@ def require_current(snapshot):
         raise MuseError('stale_specification', 'Project context changed. Prepare and confirm a new snapshot before continuing.')
 
 
-def request_context(snapshot):
+def request_context(snapshot, *, include_images=True):
     instructions = '\n'.join(snapshot.platform_instructions) + '\n\n' + snapshot.framework_contract + '\n\nExample robot:\n' + snapshot.example_robot
     content = [{'type':'input_text', 'text':canonical(snapshot.project_data)}]
     total = 0
@@ -154,7 +154,7 @@ def request_context(snapshot):
         raise MuseError('context_limit', 'Saved context exceeds the text limit.')
     if len(snapshot.images) > MAX_IMAGES:
         raise MuseError('context_limit', 'Saved context exceeds the image limit.')
-    for image in snapshot.images:
+    for image in snapshot.images if include_images else []:
         try:
             with guarded_file(image['path']).open('rb') as stream:
                 data = stream.read(MAX_IMAGE_BYTES + 1)

@@ -5,7 +5,7 @@ from time import perf_counter
 from .budget import reserve, settle
 from .client import (CHECK_MAX_OUTPUT_TOKENS, ConnectionCheck, MetaClient,
                      MetaConfiguration, MuseError, token_count)
-from .context import request_context, require_current
+from .context import MAX_TEXT_BYTES, canonical, request_context, require_current
 
 REJECTED_CODES = {'authentication', 'permission', 'billing', 'model_not_found', 'rate_limited', 'invalid_request'}
 
@@ -33,7 +33,14 @@ class MuseService:
     def review_context(self, snapshot, *, max_output_tokens=1024):
         return self._perform('context_review', snapshot=snapshot, max_output_tokens=max_output_tokens)
 
-    def _perform(self, operation, *, snapshot, max_output_tokens):
+    def clarify(self, snapshot, conversation_state, *, build_operation, include_images=False):
+        from .conversation_schema import CLARIFICATION_POLICY, provider_schema
+        return self._perform('clarification', snapshot=snapshot, max_output_tokens=1536,
+            conversation_state=conversation_state, build_operation=build_operation,
+            include_images=include_images, extra_policy=CLARIFICATION_POLICY, response_schema=provider_schema())
+
+    def _perform(self, operation, *, snapshot, max_output_tokens, conversation_state=None, build_operation=None,
+                 include_images=True, extra_policy='', response_schema=None):
         configuration = MetaConfiguration.from_settings()
         instructions = None
         if snapshot is None:
@@ -42,16 +49,26 @@ class MuseService:
             input = 'Reply exactly OK.'
         else:
             require_current(snapshot)
-            instructions, input = request_context(snapshot)
-        request = reserve(operation, configuration.model, max_output_tokens, snapshot)
+            instructions, input = request_context(snapshot, include_images=include_images)
+        if conversation_state is not None:
+            input[0]['content'].append({'type':'input_text','text':'Conversation state: ' + canonical(conversation_state)})
+        if extra_policy:
+            instructions += '\n\n' + extra_policy
+        if isinstance(input, list):
+            size = len((instructions or '').encode('utf-8')) + sum(len(item['text'].encode('utf-8'))
+                for message in input for item in message['content'] if item['type'] == 'input_text')
+            if size > MAX_TEXT_BYTES:
+                raise MuseError('context_limit', 'Conversation context exceeds the text limit. Edit the specification or start a new session.')
+        request = reserve(operation, configuration.model, max_output_tokens, snapshot, build_operation)
         started = perf_counter()
         sent = False
         try:
             if snapshot is not None:
                 require_current(snapshot)
             sent = True
+            options = {'response_schema':response_schema} if response_schema is not None else {}
             response = self.client.request(input=input, instructions=instructions,
-                max_output_tokens=max_output_tokens, configuration=configuration)
+                max_output_tokens=max_output_tokens, configuration=configuration, **options)
         except MuseError as error:
             settle(request.pk, outcome='rejected' if not sent or error.code in REJECTED_CODES else 'uncertain',
                 duration=perf_counter() - started, error_code=error.code, rejected=not sent or error.code in REJECTED_CODES)

@@ -62,7 +62,7 @@ class MetaClient:
     def __init__(self, *, client_factory=None):
         self.client_factory = client_factory if client_factory is not None else OpenAI
 
-    def request(self, *, input, max_output_tokens, instructions=None, configuration=None):
+    def request(self, *, input, max_output_tokens, instructions=None, configuration=None, response_schema=None):
         configuration = configuration or MetaConfiguration.from_settings()
         timeout = httpx.Timeout(configuration.timeout_seconds, connect=min(10, configuration.timeout_seconds),
             write=min(10, configuration.timeout_seconds), pool=min(5, configuration.timeout_seconds))
@@ -72,6 +72,8 @@ class MetaClient:
                 with self.client_factory(api_key=configuration.api_key, base_url=META_BASE_URL,
                         max_retries=0, timeout=timeout, http_client=transport) as client:
                     options = {'instructions':instructions} if instructions is not None else {}
+                    if response_schema is not None:
+                        options['text'] = {'format':{'type':'json_schema', 'name':'workflow_clarification', 'strict':True, 'schema':response_schema}}
                     response = client.responses.create(
                         model=configuration.model, input=input, max_output_tokens=max_output_tokens,
                         reasoning={'effort':'minimal'}, store=False, tools=[], **options,
