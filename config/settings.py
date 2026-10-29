@@ -15,7 +15,7 @@ ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS",
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "accounts", "projects", "inspector", "execution",
+    "accounts", "projects", "inspector", "execution", "muse_builder",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -55,3 +55,8 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Optional backend integration; normal project/runner features need no Meta key.
+MUSE_APIKEY = os.environ.get('MUSE_APIKEY', '')
+META_MODEL = os.environ.get('META_MODEL', 'muse-spark-1.3')
+META_TIMEOUT_SECONDS = os.environ.get('META_TIMEOUT_SECONDS', '45')

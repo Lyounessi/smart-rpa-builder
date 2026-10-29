@@ -6,7 +6,7 @@ Users will define workflows through screenshots, captured interface elements, an
 
 The planned platform will support inspecting web and Windows desktop applications, running robots, reviewing execution logs, and refining workflows.
 
-> **Status:** Workflow editing, the local web inspector, project input definitions, and CSV/XLSX dataset preview are implemented. Desktop inspection, OCR, Muse integration, robot execution, and result exports are deferred.
+> **Status:** Workflow editing, automation briefs, the local web inspector, CSV/XLSX datasets, the robot framework/catalog, and a backend Meta API connection check are implemented. Muse conversation/code generation, desktop inspection, OCR, and result exports are deferred.
 
 ## Local setup (Windows PowerShell)
 
@@ -75,7 +75,13 @@ Optional Django admin account:
 - `requirements.txt` allows patch updates within Django 5.2 LTS. `requirements.lock.txt` records the exact verified runtime dependencies; install it instead for a reproducible environment.
 - `requirements-inspector.txt` adds Playwright and Pillow. `requirements-inspector.lock.txt` pins the complete verified inspector environment. Install Chromium separately with the command above.
 - HTMX is vendored in `static/vendor/` with its license. Django retains CSRF protection; future mutation forms must include `{% csrf_token %}`. `static/app.js` forwards that token for same-origin HTMX requests.
-- No Muse API key is needed at this stage. Never commit actual credentials or include them in model context.
+- Normal workflow/inspector/runner features need no Muse key. The optional backend connection check uses `MUSE_APIKEY` from the local environment; see [Muse setup](docs/muse-integration.md). Never commit actual credentials or include them in model context.
+
+## Muse API connection (Phase 1)
+
+Set `MUSE_APIKEY` in your ignored `.env`, optionally set `META_MODEL` (default `muse-spark-1.3`) and `META_TIMEOUT_SECONDS` (default 45), then run `python manage.py check_muse_connection` through the project's virtual environment. This explicitly makes one small paid request with a fixed prompt, a 128-token output cap, and SDK retries disabled. It sends no project data and never executes a robot.
+
+See [configuration, safe errors, tests and current limits](docs/muse-integration.md). Chat, generation, persistent usage tracking and budget enforcement are later phases. The API key stays backend-only, and no connection check runs automatically.
 
 ## Checks
 
