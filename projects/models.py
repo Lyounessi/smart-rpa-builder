@@ -124,6 +124,7 @@ class Dataset(Timestamped):
 
 
 class DatasetRow(models.Model):
+    deleted_at = models.DateTimeField(null=True,blank=True)
     dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name='rows')
     row_number = models.PositiveIntegerField()
     values = models.JSONField()

@@ -1,0 +1,6 @@
+{% extends 'base.html' %}{% block title %}{{ definition.key }} · Input definition{% endblock %}
+{% block content %}<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a><h1>{{ definition.key }}</h1>
+<p>{{ definition.get_data_type_display }} · {{ definition.required|yesno:'Required,Optional' }}</p><p>{{ definition.description|linebreaksbr }}</p>
+<p><a href="{% url 'input-edit' project.pk definition.pk %}">Edit definition</a> · <a href="{% url 'input-delete' project.pk definition.pk %}">Delete definition</a></p>
+<h2>Workflow mappings</h2>{% for step in steps %}<p><a href="{% url 'step-edit' project.pk step.pk %}">{{ step.name }}</a></p>{% empty %}<p>No workflow steps use this input.</p>{% endfor %}
+<p>Existing datasets retain their saved input definitions when this definition changes.</p>{% endblock %}

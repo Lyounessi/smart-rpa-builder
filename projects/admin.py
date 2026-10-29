@@ -56,5 +56,5 @@ class DatasetAdmin(ReadOnlyAdmin):
 
 @admin.register(DatasetRow)
 class DatasetRowAdmin(ReadOnlyAdmin):
-    list_display = ('dataset', 'row_number')
+    list_display = ('dataset', 'row_number','processing_status','deleted_at')
     list_filter = ('dataset',)

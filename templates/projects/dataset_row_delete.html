@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block title %}{% if restore %}Restore{% else %}Delete{% endif %} input{% endblock %}
+{% block content %}<a href="{% url 'dataset-row-detail' project.pk dataset.pk row.pk %}">← Input {{ row.row_number }}</a><h1>{% if restore %}Restore{% else %}Delete{% endif %} input {{ row.row_number }}?</h1>
+{% if restore %}<p>The input returns with its previous processing state. Completed inputs remain completed. Invalid restored inputs must be corrected and the dataset confirmed before execution.</p>{% else %}<p>This removes the input from the active dataset and pending queue. Execution history and recorded values stay available. You can restore it from Deleted inputs.</p>{% endif %}
+<dl>{% for key,value in row.values.items %}<dt>{{ key }}</dt><dd>{{ value }}</dd>{% endfor %}</dl>
+<form method="post">{% csrf_token %}{{ form.as_p }}<button>{% if restore %}Restore input{% else %}Delete input{% endif %}</button></form>{% endblock %}

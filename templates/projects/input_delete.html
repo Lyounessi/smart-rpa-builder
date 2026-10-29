@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block title %}Delete input definition{% endblock %}
+{% block content %}<a href="{% url 'input-detail' project.pk definition.pk %}">← {{ definition.key }}</a><h1>Delete input definition {{ definition.key }}?</h1>
+<p>This removes the definition from this project's future datasets and build context. Existing datasets and execution history keep their saved definitions and values.</p>
+{% if steps %}<p>Remove or change these workflow mappings before deleting:</p><ul>{% for step in steps %}<li><a href="{% url 'step-edit' project.pk step.pk %}">{{ step.name }}</a></li>{% endfor %}</ul>{% endif %}
+<form method="post">{% csrf_token %}{{ form.as_p }}<button {% if steps %}disabled{% endif %}>Delete definition</button></form>{% endblock %}
