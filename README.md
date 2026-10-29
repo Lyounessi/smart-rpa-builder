@@ -81,7 +81,15 @@ Optional Django admin account:
 
 Set `MUSE_APIKEY` in your ignored `.env`, optionally set `META_MODEL` (default `muse-spark-1.3`) and `META_TIMEOUT_SECONDS` (default 45), then run `python manage.py check_muse_connection` through the project's virtual environment. This explicitly makes one small paid request with a fixed prompt, a 128-token output cap, and SDK retries disabled. It sends no project data and never executes a robot.
 
-See [configuration, safe errors, tests and current limits](docs/muse-integration.md). Chat, generation, persistent usage tracking and budget enforcement are later phases. The API key stays backend-only, and no connection check runs automatically.
+See [configuration, safe errors, tests and current limits](docs/muse-integration.md). The API key stays backend-only, and no connection check runs automatically.
+
+### Context and spending controls (Phase 2)
+
+`python manage.py prepare_muse_context <project_id>` saves a filtered local snapshot with a compact versioned Markdown contract, one example, project JSON and deduplicated referenced screenshots. It sends nothing to Meta. Specification and image-content hashes detect changes before and during a request; stale responses are discarded.
+
+All application API calls, including the explicit connection check, now use a persistent usage ledger and conservative reservations. The default local limit is $140 of the $150 hackathon allowance, configurable with `MUSE_BUDGET_USD`; one Muse operation is active at a time. Unknown usage retains its full reservation. Open **Muse usage** (`/muse/usage/`) to inspect estimates and commitments. These are local estimates, not a provider billing guarantee or account balance.
+
+Apply migrations first. See [context composition, limits, pricing configuration, recovery and tests](docs/muse-context-budget.md). Chat, generation and automatic code repairs remain later phases. No real API call is needed to prepare context or view usage.
 
 ## Checks
 

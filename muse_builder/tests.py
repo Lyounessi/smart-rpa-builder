@@ -114,7 +114,9 @@ class MetaClientTests(SimpleTestCase):
     def test_command_outputs_only_safe_metadata_and_errors(self):
         from unittest.mock import patch
         output = StringIO()
-        with patch('muse_builder.management.commands.check_muse_connection.MetaClient', return_value=self.make_client(self.success)):
+        from types import SimpleNamespace
+        with patch('muse_builder.management.commands.check_muse_connection.MuseService',
+                   return_value=SimpleNamespace(check_connection=self.make_client(self.success).check_connection)):
             call_command('check_muse_connection', stdout=output)
         self.assertIn('Muse connection successful', output.getvalue())
         self.assertIn('input=12', output.getvalue())

@@ -4,8 +4,10 @@ from django.urls import include, path
 from projects import views
 from projects import input_views
 from execution import robot_views
+from muse_builder import views as muse_views
 
 urlpatterns = [
+    path('muse/usage/', muse_views.usage, name='muse-usage'),
     path('robots/', robot_views.robot_list, name='robot-list'),
     path('robots/<int:robot_id>/', robot_views.robot_detail, name='robot-detail'),
     path('robots/<int:robot_id>/builds/<int:version>/', robot_views.build_detail, name='robot-build-detail'),

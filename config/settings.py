@@ -60,3 +60,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 MUSE_APIKEY = os.environ.get('MUSE_APIKEY', '')
 META_MODEL = os.environ.get('META_MODEL', 'muse-spark-1.3')
 META_TIMEOUT_SECONDS = os.environ.get('META_TIMEOUT_SECONDS', '45')
+MUSE_BUDGET_USD = os.environ.get('MUSE_BUDGET_USD', '140')
+MUSE_MAX_OUTPUT_TOKENS = os.environ.get('MUSE_MAX_OUTPUT_TOKENS', '4096')
+# Prices checked against Meta Standard-mode pricing on 2026-10-29.
+# Fail closed if META_MODEL differs from the explicitly priced model.
+META_PRICE_MODEL = os.environ.get('META_PRICE_MODEL', 'muse-spark-1.3')
+META_INPUT_USD_PER_MILLION = os.environ.get('META_INPUT_USD_PER_MILLION', '1.25')
+META_CACHED_USD_PER_MILLION = os.environ.get('META_CACHED_USD_PER_MILLION', '0.15')
+META_OUTPUT_USD_PER_MILLION = os.environ.get('META_OUTPUT_USD_PER_MILLION', '4.25')

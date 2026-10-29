@@ -1,5 +1,7 @@
 # Muse integration — Phase 1: API connection
 
+Phase 2 is now implemented: see [context snapshots, usage ledger and spending controls](muse-context-budget.md). Run migrations before using the tracked connection check. Chat and robot generation remain deferred.
+
 The backend uses the OpenAI Python SDK against Meta Model API at the fixed URL `https://api.meta.ai/v1`. The initial model is `muse-spark-1.3`, configurable through `META_MODEL`. This calls Meta's model API directly; it does not launch the Muse Code terminal agent or grant it shell, filesystem, browser, or email tools.
 
 ## Local configuration
@@ -51,11 +53,11 @@ The backend maps errors to fixed, safe messages and the command exits nonzero:
 | `provider` / `client` | Provider or local SDK failure |
 | `unexpected_response` | Response did not complete with the expected bounded confirmation |
 
-A timed-out request may still have reached the provider and incurred charges. Re-running the command is another explicit request; do not place it in a retry loop. Persistent usage/cost tracking and the spending reservation gate are Phase 2 work, so do not use this diagnostic command as a production generation endpoint or automated monitor.
+A timed-out request may still have reached the provider and incurred charges. Re-running the command is another explicit request; do not place it in a retry loop. The command now passes through the persistent Phase 2 usage ledger and spending reservation gate. It remains a fixed diagnostic, not a generation endpoint or automated monitor.
 
 ## Backend boundary and tests
 
-`muse_builder/client.py` owns configuration validation, SDK calls, safe errors and normalized check results. `muse_builder/management/commands/check_muse_connection.py` exposes only the fixed diagnostic. No database schema or frontend behavior changes are required for Phase 1.
+`muse_builder/client.py` owns configuration validation, SDK calls and safe errors. `muse_builder/service.py` wraps application calls with spending/usage controls. `muse_builder/management/commands/check_muse_connection.py` exposes only the fixed diagnostic. The Phase 2 ledger requires its database migration; it does not send project data during a connection check.
 
 ```powershell
 .\.venv\Scripts\python.exe manage.py test muse_builder
@@ -71,4 +73,4 @@ Checked on 2026-10-29:
 - [Responses API](https://dev.meta.ai/docs/protocols/responses): response format, stateless requests, minimal reasoning and output-token limits.
 - [Error handling](https://dev.meta.ai/docs/error-handling): provider status codes and SDK error categories.
 
-Next phases add filtered multimodal context, a versioned framework contract, usage/spending controls, bounded clarification sessions, explicit specification confirmation, draft generation/static validation, and a separate reviewed-version test path. Those capabilities are not implemented by this connection milestone.
+Filtered multimodal context, a versioned framework contract and usage/spending controls are implemented in Phase 2. Next phases add bounded clarification sessions, explicit specification confirmation, draft generation/static validation, and a separate reviewed-version test path.

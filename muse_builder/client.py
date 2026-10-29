@@ -51,6 +51,7 @@ class ConnectionCheck:
     input_tokens: int | None
     output_tokens: int | None
     cached_tokens: int | None
+    request_id: str | None = None
 
 
 def token_count(value):
@@ -61,20 +62,19 @@ class MetaClient:
     def __init__(self, *, client_factory=None):
         self.client_factory = client_factory if client_factory is not None else OpenAI
 
-    def check_connection(self):
-        configuration = MetaConfiguration.from_settings()
+    def request(self, *, input, max_output_tokens, instructions=None, configuration=None):
+        configuration = configuration or MetaConfiguration.from_settings()
         timeout = httpx.Timeout(configuration.timeout_seconds, connect=min(10, configuration.timeout_seconds),
             write=min(10, configuration.timeout_seconds), pool=min(5, configuration.timeout_seconds))
-        started = perf_counter()
         # Never follow a redirect to a caller-controlled endpoint. No base-URL override.
         try:
             with httpx.Client(timeout=timeout, follow_redirects=False) as transport:
                 with self.client_factory(api_key=configuration.api_key, base_url=META_BASE_URL,
                         max_retries=0, timeout=timeout, http_client=transport) as client:
+                    options = {'instructions':instructions} if instructions is not None else {}
                     response = client.responses.create(
-                        model=configuration.model, input='Reply exactly OK.',
-                        max_output_tokens=CHECK_MAX_OUTPUT_TOKENS,
-                        reasoning={'effort':'minimal'}, store=False, tools=[],
+                        model=configuration.model, input=input, max_output_tokens=max_output_tokens,
+                        reasoning={'effort':'minimal'}, store=False, tools=[], **options,
                     )
         except AuthenticationError:
             raise MuseError('authentication', 'Meta rejected the API key. Check MUSE_APIKEY and account access.') from None
@@ -88,7 +88,7 @@ class MetaClient:
             raise MuseError('connection', 'Could not reach Meta. Check network connectivity; no automatic retry was made.') from None
         except APIStatusError as error:
             code, message = {
-                400: ('invalid_request', 'Meta rejected the connection-check parameters. Check model compatibility.'),
+                400: ('invalid_request', 'Meta rejected the request parameters. Check model compatibility.'),
                 402: ('billing', 'Meta reports a billing or credit issue. Check the provider dashboard.'),
                 404: ('model_not_found', 'Meta model or API endpoint was not found. Check META_MODEL and model access.'),
             }.get(error.status_code, ('provider', 'Meta returned a provider error. No automatic retry was made.'))
@@ -96,7 +96,15 @@ class MetaClient:
         except APIError:
             raise MuseError('provider', 'Meta returned an unreadable API response. No automatic retry was made.') from None
         except Exception:
-            raise MuseError('client', 'The Meta connection check could not complete. Check the local SDK and configuration.') from None
+            raise MuseError('client', 'The Meta request could not complete. Check the local SDK and configuration.') from None
+        return response
+
+    def check_connection(self):
+        # Low-level transport diagnostic; application entry points use MuseService
+        # so every real request passes the spending/ledger gate.
+        configuration = MetaConfiguration.from_settings()
+        started = perf_counter()
+        response = self.request(input='Reply exactly OK.', max_output_tokens=CHECK_MAX_OUTPUT_TOKENS, configuration=configuration)
         try:
             confirmed = response.status == 'completed' and response.output_text.strip() == 'OK'
             usage = response.usage
