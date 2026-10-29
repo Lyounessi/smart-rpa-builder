@@ -31,6 +31,8 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
+Steps support **Read text → save output** with a named result such as `weather_information`. Extracted text is stored per row attempt and displayed in run results, separately from uploaded input values. See [workflow outputs and framework API](docs/workflow-outputs.md). Muse uses framework contract 1.1; older confirmations require a fresh review. Generated drafts still require explicit testing/activation in the next milestone.
+
 - One project represents one workflow, with a name and optional description.
 - Project creation and editing include an application setup: web application or multiple applications (web only for now). Desktop is visible but disabled and rejected server-side until desktop support is implemented. Existing projects default to web. This setup describes workflow intent; application windows remain separate reusable entities, and it does not impose a window-count limit.
 - Target applications store a name and HTTP(S) starting URL. Embedded URL credentials are rejected; do not put passwords or tokens in URLs.

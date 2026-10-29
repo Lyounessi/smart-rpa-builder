@@ -14,7 +14,7 @@ from projects.generation_context import assemble_generation_context
 from .client import MuseError
 from .models import ContextSnapshot
 
-CONTRACT_VERSION = '1.0'
+CONTRACT_VERSION = '1.1'
 MAX_TEXT_BYTES = 65536
 MAX_IMAGES = 8
 MAX_IMAGE_BYTES = 2 * 1024 * 1024

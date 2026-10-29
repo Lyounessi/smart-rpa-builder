@@ -31,7 +31,7 @@ def assemble_generation_context(project, *, framework_contract):
         steps.append({'id':step.pk, 'position':step.position, 'name':step.name, 'instruction':step.instruction,
             'action':step.action, 'application_id':step.window_id,
             'input_mapping':{'id':step.input_column_id, 'key':step.input_column.key} if step.input_column_id else None,
-            'element_ids':references})
+            'element_ids':references, 'output_key':step.output_key})
     return {
         'context_version':1,
         'platform_instructions':[

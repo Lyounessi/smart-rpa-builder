@@ -45,6 +45,10 @@ TechnicalError, ExecutionCancelled, Outcome from robot_framework.contracts; and
 EmailStep from robot_framework.email. Use fixed class constants/dicts for IDs if useful.
 Use literal or statically resolvable application/element IDs and input keys from the
 confirmed project. Preserve each step's action and input mapping. Do not invent IDs.
+For read_text steps use ctx.extract_text(element_id, output_key), with the exact
+configured output_key. This reads text and saves it in this row's outputs; do not
+use select_option or just read_text for these steps. Never mutate inputs or use
+an input mapping for an extracted result. Extraction belongs in process only.
 Use named ctx.step blocks and explicit success assertions in process. If continuing,
 recover must explicitly verify a known state and return True. No while loops, UI
 submission loops, sleeps, print/log calls, retries, raw browser/ORM or external clients.

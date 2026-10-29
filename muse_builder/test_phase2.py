@@ -57,7 +57,7 @@ class Phase2Tests(TestCase):
         DatasetRow.objects.create(dataset=dataset, row_number=2, values={'name':'PRIVATE_DATASET_VALUE'})
         first, second = create_snapshot(self.project), create_snapshot(self.project)
         self.assertEqual(first.specification_hash, second.specification_hash)
-        self.assertEqual(first.contract_version, '1.0')
+        self.assertEqual(first.contract_version, '1.1')
         instructions, input = request_context(first)
         self.assertIn('BaseRobot', instructions)
         self.assertIn('ExampleRobot', instructions)

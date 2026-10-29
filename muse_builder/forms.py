@@ -36,6 +36,7 @@ class SpecificationForm(forms.Form):
         for name in ['setup_step_ids','per_row_step_ids']:
             self.fields[name].queryset = project.steps.all()
         self.step_ids = set(project.steps.values_list('pk', flat=True))
+        self.read_step_ids = set(project.steps.filter(action='read_text').values_list('pk', flat=True))
 
     def clean(self):
         data = super().clean()
@@ -43,6 +44,8 @@ class SpecificationForm(forms.Form):
             setup, rows = set(data['setup_step_ids'].values_list('pk',flat=True)), set(data['per_row_step_ids'].values_list('pk',flat=True))
             if setup & rows or setup | rows != self.step_ids:
                 raise forms.ValidationError('Allocate each workflow step exactly once to setup or per-row processing.')
+            if setup & self.read_step_ids:
+                self.add_error('setup_step_ids', 'Read text outputs must run for each input row, not during setup.')
         if (data.get('stop_on_nok') is False or data.get('stop_on_error') is False) and not data.get('recovery_plan'):
             self.add_error('recovery_plan', 'Explain how to restore a known state before continuing.')
         return data

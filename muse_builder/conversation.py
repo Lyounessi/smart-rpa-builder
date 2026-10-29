@@ -66,7 +66,7 @@ def local_issues(session):
     if not form.is_valid():
         issues.extend(f'{field}: {" ".join(errors)}' for field,errors in form.errors.items())
     for step in session.snapshot.project_data['steps']:
-        if step['action'] not in {'click','fill','select'}:
+        if step['action'] not in {'click','fill','select','read_text'}:
             issues.append(f'Step {step["id"]} needs a supported action in the project editor.')
         if not step['application_id'] or not step['element_ids']:
             issues.append(f'Step {step["id"]} needs its target application and captured element.')

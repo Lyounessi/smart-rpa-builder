@@ -74,13 +74,15 @@ class DjangoQueue:
                 attempt = RowAttempt.objects.get(run=current, row_id=row)
                 business_done = attempt.business_completed_at is not None or result.status == 'OK'
                 RowAttempt.objects.filter(pk=attempt.pk).update(outcome=result.status, message=result.message,
-                    failed_step=result.failed_step or '', evidence=result.evidence, updated_at=timezone.now(), finished_at=timezone.now())
+                    failed_step=result.failed_step or '', evidence=result.evidence, outputs=result.outputs, updated_at=timezone.now(), finished_at=timezone.now())
                 if business_done and attempt.business_completed_at is None:
                     RowAttempt.objects.filter(pk=attempt.pk).update(business_completed_at=timezone.now())
                 DatasetRow.objects.filter(pk=row, claimed_by=current).update(
                     processing_status='done' if business_done else 'pending', claimed_by=None)
             elif kind == 'business_completed':
                 attempt = RowAttempt.objects.get(run=current, row_id=row)
+                if result is not None:
+                    RowAttempt.objects.filter(pk=attempt.pk).update(outputs=result.outputs)
                 if DatasetRow.objects.filter(pk=row, claimed_by=current).update(processing_status='done') != 1:
                     raise RuntimeError('Business completion requires a claimed row.')
                 if attempt.business_completed_at is None:

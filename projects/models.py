@@ -33,6 +33,7 @@ class WorkflowStep(Timestamped):
         CLICK = 'click', 'Click'
         FILL = 'fill', 'Fill'
         SELECT = 'select', 'Select option'
+        READ_TEXT = 'read_text', 'Read text → save output'
 
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="steps")
     window = models.ForeignKey("inspector.ApplicationWindow", null=True, blank=True, on_delete=models.PROTECT, related_name="steps")
@@ -40,13 +41,23 @@ class WorkflowStep(Timestamped):
     name = models.CharField(max_length=200)
     instruction = models.TextField()
     action = models.CharField(max_length=10, choices=Action.choices, blank=True, default='')
+    output_key = models.CharField(max_length=64, blank=True, default='', validators=[
+        RegexValidator(r'^[a-z][a-z0-9_]*$', 'Use lowercase letters, numbers and underscores; start with a letter.')])
     input_column = models.ForeignKey('ProjectInput', null=True, blank=True, on_delete=models.PROTECT, related_name='steps')
 
     class Meta:
         ordering = ["position", "pk"]
-        constraints = [models.UniqueConstraint(fields=["project", "position"], name="unique_project_step_position")]
+        constraints = [models.UniqueConstraint(fields=["project", "position"], name="unique_project_step_position"),
+            models.UniqueConstraint(fields=['project','output_key'], condition=~models.Q(output_key=''), name='unique_project_output_key')]
 
     def clean(self):
+        if self.action == self.Action.READ_TEXT:
+            if not self.output_key:
+                raise ValidationError({'output_key': 'Name the output where this text will be saved.'})
+            if self.project_id and WorkflowStep.objects.filter(project_id=self.project_id, output_key=self.output_key).exclude(pk=self.pk).exists():
+                raise ValidationError({'output_key': 'Use a different output name for each read step.'})
+        elif self.output_key:
+            raise ValidationError({'output_key': 'Only Read text steps save an output.'})
         if self.window_id and self.window.project_id != self.project_id:
             raise ValidationError({"window": "Choose an application from this project."})
         if self.input_column_id and self.input_column.project_id != self.project_id:

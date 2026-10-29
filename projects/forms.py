@@ -66,9 +66,10 @@ class StepForm(forms.ModelForm):
 
     class Meta:
         model = WorkflowStep
-        fields = ["name", "instruction", "window", "action", "input_column"]
+        fields = ["name", "instruction", "window", "action", "input_column", "output_key"]
         labels = {"window": "Target application", "input_column": "Input column"}
-        help_texts = {"input_column": "Use this column from each dataset row. Add project inputs first if the list is empty."}
+        help_texts = {"input_column": "Use this column from each dataset row. Add project inputs first if the list is empty.",
+                     "output_key": "Save extracted text under this name, for example weather_information. Output is separate from uploaded inputs."}
 
     def __init__(self, *args, project, **kwargs):
         super().__init__(*args, **kwargs)
@@ -77,6 +78,7 @@ class StepForm(forms.ModelForm):
         self.fields['input_column'].queryset = project.inputs.all()
         self.fields['action'].widget.attrs['data-step-action'] = ''
         self.fields['input_column'].widget.attrs['data-step-input'] = ''
+        self.fields['output_key'].widget.attrs['data-step-output'] = ''
         self.fields["window"].queryset = project.windows.filter(application_type="web")
         self.fields["window"].widget.attrs.update({
             "hx-get": reverse("step-target-options", args=[project.pk]),
@@ -100,8 +102,10 @@ class StepForm(forms.ModelForm):
 
     def clean(self):
         data = super().clean()
-        if data.get('action') == WorkflowStep.Action.CLICK:
+        if data.get('action') in {WorkflowStep.Action.CLICK, WorkflowStep.Action.READ_TEXT}:
             data['input_column'] = None
+        if data.get('action') != WorkflowStep.Action.READ_TEXT:
+            data['output_key'] = ''
         target, window = data.get("target"), data.get("window")
         if target and window and target.window_id != window.pk:
             self.add_error("target", "Choose an element from the selected application.")
