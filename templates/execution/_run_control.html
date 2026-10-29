@@ -1,8 +1,11 @@
-<div class="robot-action-bar"><div><p class="eyebrow">Robot workspace</p><h1>{{ robot.name }}</h1><p class="muted">Project: <a href="{% url 'project-detail' robot.project_id %}">{{ robot.project.name }}</a></p></div>
-<div class="robot-run-action">
-{% if active_execution %}<span class="run-state state-running">{% if active_execution.cancel_requested %}Stopping…{% else %}Execution active{% endif %}</span><button class="run-primary" disabled>▶ Run robot</button><a href="{% url 'run-detail' active_execution.pk %}">Open active execution</a>
-{% elif not has_runnable_version %}<span class="run-state">Version required</span><button class="run-primary" disabled>▶ Run robot</button><a href="{% url 'muse-build' robot.project_id %}">Build a validated draft first</a>
-{% elif not queue.pending %}<span class="run-state">No pending inputs</span><button class="run-primary" disabled>▶ Run robot</button><a href="{% url 'project-detail' robot.project_id %}">Add or confirm inputs</a>
-{% else %}<span class="run-state state-ready">Ready to review · {{ queue.pending }} pending</span><a class="button run-primary" href="{% url 'robot-run' robot.pk %}" hx-get="{% url 'robot-run' robot.pk %}" hx-target="#run-dialog-content" hx-swap="innerHTML" data-run-trigger><span aria-hidden="true">▶</span> Run robot</a><small>Choose a version and dataset · up to 5 inputs</small>{% endif %}
-</div></div>
+<section class="robot-overview" aria-label="Robot controls">
+<div class="robot-heading-row"><div class="robot-heading"><p class="eyebrow">Automation</p><h1>{{ robot.project.name }}</h1><p class="robot-identifier">{{ robot.name }}</p></div>
+<div class="robot-primary-action">{% if active_execution or not has_runnable_version or not queue.pending %}<button class="run-primary" disabled><span aria-hidden="true">▶</span> Run robot</button>{% else %}<a class="button run-primary" href="{% url 'robot-run' robot.pk %}" hx-get="{% url 'robot-run' robot.pk %}" hx-target="#run-dialog-content" hx-swap="innerHTML" data-run-trigger><span aria-hidden="true">▶</span> Run robot</a>{% endif %}</div></div>
+<div class="robot-header-meta">
+{% if active_execution %}<span class="run-state state-running">{% if active_execution.cancel_requested %}Stopping…{% else %}Execution active{% endif %}</span><a href="{% url 'run-detail' active_execution.pk %}">Open active execution →</a>
+{% elif not has_runnable_version %}<span class="run-state">Version required</span><a href="{% url 'muse-build' robot.project_id %}">Build a validated draft first →</a>
+{% elif not queue.pending %}<span class="run-state">No pending inputs</span><a href="{% url 'project-detail' robot.project_id %}">Add or confirm inputs →</a>
+{% else %}<span class="run-state state-ready">{{ queue.pending }} pending inputs</span><span class="robot-run-limit">Reviewed test · up to 5 inputs per run</span>{% endif %}
+<a class="robot-project-link" href="{% url 'project-detail' robot.project_id %}">View project →</a></div>
+</section>
 <dialog id="robot-run-dialog" aria-labelledby="run-dialog-title"><div id="run-dialog-content"></div></dialog>
