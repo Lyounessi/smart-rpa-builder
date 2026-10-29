@@ -62,7 +62,8 @@ class DjangoQueue:
     def rows(self):
         rows = self.run.dataset.rows.filter(processing_status='pending', errors=[],deleted_at__isnull=True)
         if self.run.is_test:
-            rows = rows[:self.run.test_options['row_limit']]
+            limit=self.run.test_options['row_limit']
+            rows = rows[:min(limit,self.run.test_options.get('planned_rows',limit))]
         selected = [InputRow(str(row.pk), row.values) for row in rows]
         self.selected_rows = {item.reference:item for item in selected}
         return selected

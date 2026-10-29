@@ -31,6 +31,8 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
+**Run controls:** Each robot page has a prominent **Run robot** button and readiness status. Its HTMX dialog selects a reviewed version, confirmed dataset with pending counts, 1–5 inputs and optional recording. Live progress shows elapsed time, step, processed/outcome counts, **Stop execution / Stopping…**, and links to saved results. See [run controls and draft-testing safeguards](docs/draft-testing.md).
+
 **Input CRUD:** Project input definitions support Add, View, Edit and Delete, with mapped definitions protected. Dataset inputs support Add, View, Edit and recoverable Delete/Restore, plus duplication of completed rows into new pending inputs. Forms use the dataset's saved schema and share upload validation. New executions snapshot their claimed inputs so subsequent edits do not change prior results. See [manual input management and history preservation](docs/manual-inputs.md).
 
 **Phase 5:** Reviewed draft versions can now be explicitly tested on 1–5 pending input rows from their version page. Test history, saved outputs and timing KPIs remain linked to that version; drafts are not automatically activated. See [draft testing, CLI and the isolated greeting demo](docs/draft-testing.md). Testing runs trusted reviewed Python with local permissions; static checks are not a sandbox.

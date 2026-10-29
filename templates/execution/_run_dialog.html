@@ -1,0 +1,15 @@
+<div class="run-dialog-heading"><div><p class="eyebrow">Local robot execution</p><h2 id="run-dialog-title">Run robot</h2><p class="muted">{{ robot.name }}</p></div><a class="dialog-close secondary button" href="{% url 'robot-detail' robot.pk %}" data-close-run-dialog aria-label="Close run dialog">×</a></div>
+<div class="run-limit-note"><strong>Small test run</strong><span>Process 1–5 pending inputs. Email is simulated.</span></div>
+{% if run_block %}<aside role="alert">{{ run_block }} {% if active_execution %}<a href="{% url 'run-detail' active_execution.pk %}">Open active execution</a>{% else %}<a href="{% url 'project-detail' robot.project_id %}">Open project</a>{% endif %}</aside>{% endif %}
+<form method="post" action="{% url 'robot-run' robot.pk %}" hx-post="{% url 'robot-run' robot.pk %}" hx-target="#run-dialog-content" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
+{% csrf_token %}{{ form.non_field_errors }}
+{% if form.errors and selected_build %}<p><a href="{% url 'robot-run' robot.pk %}?build={{ selected_build.pk }}" hx-get="{% url 'robot-run' robot.pk %}?build={{ selected_build.pk }}" hx-target="#run-dialog-content">Reload this version and review again</a></p>{% endif %}
+<div class="run-fields"><div>{{ form.build.as_field_group }}</div><div>{{ form.dataset.as_field_group }}</div><div>{{ form.row_limit.as_field_group }}</div></div>
+<noscript><p><button class="secondary" type="submit" name="action" value="refresh" formnovalidate>Update selection before reviewing</button></p></noscript>
+<p class="pending-hint"><strong>{{ pending_count }}</strong> valid pending inputs available in the selected dataset. Completed and deleted inputs are excluded.</p>
+<p class="checkbox-row">{{ form.record_screen }} {{ form.record_screen.label_tag }}{{ form.record_screen.errors }}</p>
+{% if selected_build %}<details class="source-review"><summary>Review version {{ selected_build.version }} code</summary><p><a href="{% url 'robot-build-detail' robot.pk selected_build.version %}" target="_blank" rel="noopener">Open version details</a></p><pre><code>{{ source }}</code></pre><small>Source fingerprint: {{ selected_build.source_digest }}</small></details>{% endif %}
+{{ form.reviewed_digest }}{{ form.reviewed_digest.errors }}
+<p class="checkbox-row">{{ form.acknowledged }} {{ form.acknowledged.label_tag }}{{ form.acknowledged.errors }}</p><p class="helptext">Reviewed Python runs with local permissions and can change the target application. Static checks do not isolate it.</p>
+<div class="run-dialog-footer"><a class="button secondary" href="{% url 'robot-detail' robot.pk %}" data-close-run-dialog>Cancel</a><button class="run-primary" type="submit" {% if run_block %}disabled{% endif %}><span aria-hidden="true">▶</span> Start robot</button></div>
+</form>

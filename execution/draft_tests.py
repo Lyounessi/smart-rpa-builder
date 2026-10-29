@@ -46,6 +46,13 @@ def reviewed_source(build, digest):
     return name, source
 
 
+def input_schema_matches(build,dataset):
+    expected={item['key']:(item['data_type'],item['required'])
+        for item in build.confirmed_specification['project_context']['input_definitions']}
+    actual={item['key']:(item.get('data_type'),item.get('required')) for item in dataset.schema_snapshot}
+    return all(actual.get(key)==value for key,value in expected.items())
+
+
 def queue_test(build, dataset, *, reviewed_digest, acknowledged, row_limit=2, record_screen=False):
     if not acknowledged:
         raise ValueError('Review the source and confirm local execution before testing.')
@@ -54,14 +61,13 @@ def queue_test(build, dataset, *, reviewed_digest, acknowledged, row_limit=2, re
     if dataset.project_id != build.robot.project_id:
         raise ValueError('Choose a dataset from this robot project.')
     name, _ = reviewed_source(build, reviewed_digest)
-    required = {item['key'] for item in build.confirmed_specification['project_context']['input_definitions']}
-    supplied = {item['key'] for item in dataset.schema_snapshot}
-    if not required <= supplied:
-        raise ValueError('This dataset is missing inputs required by the saved specification.')
+    if not input_schema_matches(build,dataset):
+        raise ValueError('This dataset does not match the saved input names, types or required-field rules.')
     with transaction.atomic():
         run = create_run(dataset,name,build=build)
         run.is_test, run.reviewed_source_digest, run.source_reviewed_at = True, reviewed_digest, timezone.now()
-        run.test_options = {'row_limit':row_limit,'record_screen':bool(record_screen),'fake_email':True}
+        planned=min(row_limit,dataset.rows.filter(processing_status='pending',errors=[],deleted_at__isnull=True).count())
+        run.test_options = {'row_limit':row_limit,'planned_rows':planned,'record_screen':bool(record_screen),'fake_email':True}
         run.save(update_fields=['is_test','reviewed_source_digest','source_reviewed_at','test_options'])
     return run
 

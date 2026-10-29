@@ -3,7 +3,7 @@ from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from projects.models import DatasetRow
 from .models import Robot, RobotBuild, RobotRun, RowAttempt
@@ -94,7 +94,81 @@ def robot_detail(request, robot_id):
         done=Count('pk', filter=Q(processing_status='done')))
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),
         'latest_build':robot.builds.first(), 'history':history, 'selected_run':run, 'metrics':run_metrics(run),
-        'attempts':attempts, 'queue':queue})
+        'attempts':attempts, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
+        'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists()})
+
+
+@require_http_methods(['GET','POST'])
+def run_robot(request,robot_id):
+    from django.core.exceptions import ValidationError
+    from django.db import IntegrityError
+    from django.http import Http404, HttpResponse
+    from django.shortcuts import redirect
+    from django.urls import reverse
+    from .forms import RobotRunForm
+    from .draft_tests import queue_test,launch_test,reviewed_source,input_schema_matches
+    robot=get_object_or_404(Robot.objects.select_related('project'),pk=robot_id)
+    versions=robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).select_related('robot','specification_snapshot')
+    data=request.POST if request.method=='POST' else request.GET
+    refresh=request.method=='POST' and data.get('action')=='refresh'
+    selected=versions.first()
+    if data.get('build'):
+        try:
+            selected=get_object_or_404(versions,pk=data['build'])
+        except (ValueError,ValidationError):
+            raise Http404 from None
+    form=RobotRunForm(request.POST if request.method=='POST' and not refresh else None,robot=robot,selected_build=selected)
+    block=''
+    source=''
+    if selected:
+        source=next(iter(selected.source_files.values()),'')
+        try:
+            reviewed_source(selected,selected.source_digest)
+        except (ValueError,KeyError):
+            block='This version needs a current specification and valid source. Review the project and generate a current draft.'
+    else:
+        block='Generate a validated draft version before running this robot.'
+    active=RobotRun.objects.filter(active_slot='local').first()
+    if active:
+        block='Another execution is active. Wait for it to finish or open its progress page to stop it.'
+    elif not form.fields['dataset'].queryset.exists() and not block:
+        block='No confirmed dataset has valid pending inputs. Add inputs and confirm their dataset first.'
+    if request.method=='POST' and not refresh and form.is_valid() and not block:
+        try:
+            run=queue_test(form.cleaned_data['build'],form.cleaned_data['dataset'],
+                reviewed_digest=form.cleaned_data['reviewed_digest'],acknowledged=form.cleaned_data['acknowledged'],
+                row_limit=form.cleaned_data['row_limit'],record_screen=form.cleaned_data['record_screen'])
+        except (ValueError,KeyError,IntegrityError):
+            form.add_error(None,'The run could not start. Check the selected source, pending inputs and active executions, then review again.')
+        else:
+            launch_test(run)
+            url=reverse('run-detail',args=[run.pk])
+            return HttpResponse(headers={'HX-Redirect':url}) if request.headers.get('HX-Request')=='true' else redirect(url)
+    if request.method=='GET' or refresh:
+        datasets=form.fields['dataset'].queryset
+        if data.get('dataset'):
+            try:
+                dataset=form.fields['dataset'].clean(data['dataset'])
+            except ValidationError:
+                raise Http404 from None
+        else:
+            dataset=datasets.first()
+        if dataset:
+            form.initial['dataset']=dataset.pk
+        try:
+            limit=int(data.get('row_limit',2))
+            form.initial['row_limit']=limit if 1<=limit<=5 else 2
+        except ValueError:
+            pass
+        form.initial['record_screen']=data.get('record_screen')=='on'
+    else:
+        dataset=form.fields['dataset'].queryset.filter(pk=form.cleaned_data['dataset'].pk).first() if 'dataset' in form.cleaned_data else None
+    if selected and dataset and not block:
+        if not input_schema_matches(selected,dataset):
+            block='This dataset does not match the selected version’s input definitions. Create a current dataset or choose another one.'
+    template='execution/_run_dialog.html' if request.headers.get('HX-Request')=='true' else 'execution/run_robot.html'
+    return render(request,template,{'robot':robot,'form':form,'selected_build':selected,'source':source,
+        'run_block':block,'active_execution':active,'pending_count':dataset.pending_count if dataset else 0})
 
 
 @require_GET

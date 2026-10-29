@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% block title %}{{ robot.name }} · Robots{% endblock %}
-{% block content %}<a href="{% url 'robot-list' %}">← Robots</a><h1>{{ robot.name }}</h1><p>Project: <a href="{% url 'project-detail' robot.project_id %}">{{ robot.project.name }}</a></p>
+{% block content %}<a href="{% url 'robot-list' %}">← Robots</a>{% include 'execution/_run_control.html' %}
 <div class="grid kpis"><article><strong>{{ queue.pending }}</strong><span>Pending inputs</span></article><article><strong>{{ queue.in_progress }}</strong><span>Inputs in progress</span></article><article><strong>{{ queue.done }}</strong><span>Business operations completed</span></article></div>
 <p class="muted">Queue totals cover valid rows in confirmed project datasets. Business completion is separate from notification success.</p>
 <section><h2>Build versions</h2>{% for build in builds %}<p><a href="{% url 'robot-build-detail' robot.pk build.version %}">Version {{ build.version }}</a> · {{ build.get_origin_display }} · {% if build.is_draft %}Draft · static checks passed · not activated{% else %}{{ build.get_status_display }}{% endif %} · {{ build.created_at }}</p>{% empty %}<p>Build versions were not recorded for this historical robot. Existing runs are preserved.</p>{% endfor %}

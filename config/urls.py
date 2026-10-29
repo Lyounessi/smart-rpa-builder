@@ -8,6 +8,7 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('robots/<int:robot_id>/run/',robot_views.run_robot,name='robot-run'),
     path('projects/<int:project_id>/inputs/<int:input_id>/', input_views.input_detail, name='input-detail'),
     path('projects/<int:project_id>/inputs/<int:input_id>/delete/', input_views.input_delete, name='input-delete'),
     path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/', input_views.dataset_row_detail, name='dataset-row-detail'),

@@ -1,4 +1,6 @@
 from django import forms
+from django.db.models import Count, Q
+from django.urls import reverse
 
 
 class DraftTestForm(forms.Form):
@@ -12,3 +14,42 @@ class DraftTestForm(forms.Form):
         super().__init__(*args,**kwargs)
         self.fields['dataset'].queryset = build.robot.project.datasets.filter(status='ready')
         self.initial['reviewed_digest'] = build.source_digest
+
+
+class VersionChoice(forms.ModelChoiceField):
+    def label_from_instance(self,obj):
+        return f'Version {obj.version} · {obj.get_origin_display()} · reviewed before each run'
+
+
+class PendingDatasetChoice(forms.ModelChoiceField):
+    def label_from_instance(self,obj):
+        return f'{obj.name} · {obj.pending_count} pending inputs'
+
+
+class RobotRunForm(DraftTestForm):
+    build = VersionChoice(queryset=None,label='Robot version',empty_label=None)
+    dataset = PendingDatasetChoice(queryset=None,label='Input dataset',empty_label=None)
+
+    def __init__(self,*args,robot,selected_build=None,**kwargs):
+        forms.Form.__init__(self,*args,**kwargs)
+        self.fields['build'].queryset=robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False)
+        self.fields['dataset'].queryset=robot.project.datasets.filter(status='ready',invalid_row_count=0).annotate(
+            pending_count=Count('rows',filter=Q(rows__processing_status='pending',rows__errors=[],rows__deleted_at__isnull=True))
+        ).filter(pending_count__gt=0)
+        self.initial['build']=selected_build.pk if selected_build else None
+        self.initial['reviewed_digest']=selected_build.source_digest if selected_build else ''
+        self.fields['acknowledged'].label='I reviewed this version’s code and allow it to run locally, act on the target application and update these inputs.'
+        self.order_fields(['build','dataset','row_limit','record_screen','reviewed_digest','acknowledged'])
+        for key in ['build','dataset']:
+            self.fields[key].widget.attrs.update({'hx-get':reverse('robot-run',args=[robot.pk]),
+                'hx-target':'#run-dialog-content','hx-include':'closest form','hx-trigger':'change',
+                'hx-params':'build,dataset,row_limit,record_screen'})
+
+    def clean(self):
+        data=super().clean()
+        build,dataset=data.get('build'),data.get('dataset')
+        if build and dataset:
+            from .draft_tests import input_schema_matches
+            if not input_schema_matches(build,dataset):
+                self.add_error('dataset','This dataset does not match the selected version’s input definitions. Create a current dataset.')
+        return data

@@ -1,5 +1,13 @@
 # Phase 5: explicit tests of reviewed robot drafts
 
+## Main robot Run button
+
+The robot's main page now has a prominent **Run robot** action. It shows whether there is a validated draft, pending input data, or an active execution. The button opens an accessible native dialog with HTMX; without JavaScript it opens a normal page. Select the exact draft version, a ready dataset showing its valid pending count, a 1–5 input limit, and optional browser-page recording. Completed/deleted rows are excluded. Incompatible dataset schemas, stale versions and active runs are explained before execution.
+
+The selected version's escaped source and fingerprint are available for review inside the dialog. Version/dataset refreshes clear the acknowledgment and replace the digest with the selected version's value. GET requests only prepare the form and never run/import code or call Muse. The no-JavaScript selection refresh uses a CSRF-protected POST without queuing a run. Final submission requires source acknowledgment and the matching digest, retains all existing backend guards, and redirects to live execution. Double submissions cannot bypass the global active-run slot.
+
+Live progress shows state, elapsed time, processed/expected rows, actual OK/NOK/ERROR counts and the current step. New queued tests record their planned pending-row count, bounded by availability and the 1–5 limit; inputs added after queuing cannot expand that count. **Stop execution** becomes **Stopping…** while cooperative cancellation is pending; it does not promise immediate interruption. Finished runs stop polling and link to outputs/statistics and the robot workspace. Cancel requests remain POST-only and CSRF-protected. Existing version-page and CLI test flows remain available; no production activation or unrestricted full-dataset run is added.
+
 Open **Robots → robot → version**, expand the saved source, and review it. The **Test this draft version** section lets you select a confirmed dataset from the same project, choose 1–5 pending rows (default 2), optionally record browser-page video, and acknowledge the exact source version before running it.
 
 A test is real execution: it can act on its configured web application and updates the selected dataset's row outcomes. Use fictional data and a test application first. Generated Python runs with the local worker's ordinary permissions. Static validation is not a sandbox or isolation boundary; only execute code you have reviewed and trust. Email uses the injected fake adapter and cannot send real provider messages through that adapter. This does not constrain arbitrary trusted Python code's permissions.
