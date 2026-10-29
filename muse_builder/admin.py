@@ -1,7 +1,7 @@
 from django.contrib import admin
 from projects.admin import ReadOnlyAdmin
 from .models import (BuildMessage, BuildOperation, BuildProposal, BuildQuestion, BuildSession,
-                     ContextSnapshot, MuseBudget, MuseRequest)
+                     ContextSnapshot, GenerationJob, MuseBudget, MuseRequest)
 
 
 @admin.register(ContextSnapshot)
@@ -41,4 +41,9 @@ class ProposalAdmin(ReadOnlyAdmin):
 
 @admin.register(BuildOperation)
 class OperationAdmin(ReadOnlyAdmin):
-    list_display = ('id','session','round_number','status','heartbeat')
+    list_display = ('id','session','kind','round_number','status','heartbeat')
+
+
+@admin.register(GenerationJob)
+class GenerationAdmin(ReadOnlyAdmin):
+    list_display = ('id','session','robot_name','state','result_build','created_at')

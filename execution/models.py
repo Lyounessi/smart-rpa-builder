@@ -21,6 +21,13 @@ class RobotBuild(Timestamped):
     configuration = models.JSONField(default=dict)
     source_digest = models.CharField(max_length=64, blank=True)
     validation_report = models.JSONField(default=list)
+    is_draft = models.BooleanField(default=False)
+    specification_snapshot = models.ForeignKey('muse_builder.ContextSnapshot', null=True, blank=True, on_delete=models.PROTECT, related_name='robot_builds')
+    confirmed_specification = models.JSONField(default=dict)
+    confirmed_specification_hash = models.CharField(max_length=64, blank=True)
+    framework_contract_version = models.CharField(max_length=30, blank=True)
+    framework_contract_hash = models.CharField(max_length=64, blank=True)
+    assumptions = models.JSONField(default=list)
 
     class Meta:
         ordering = ['-version']

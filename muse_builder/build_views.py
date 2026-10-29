@@ -150,6 +150,20 @@ def specification(request, project_id, session_id):
 
 
 @require_POST
+def generate(request, project_id, session_id):
+    from .generation import queue_generation
+    project = get_object_or_404(Project, pk=project_id)
+    session = get_session(project, session_id)
+    try:
+        operation = queue_generation(session, expected_revision=request.POST.get('revision',''))
+    except MuseError as error:
+        session.refresh_from_db()
+        return workspace(request, project, session, error=error.message)
+    launch(operation)
+    return back(project, session)
+
+
+@require_POST
 def confirm(request, project_id, session_id):
     project = get_object_or_404(Project, pk=project_id)
     session = get_session(project, session_id)

@@ -6,7 +6,7 @@ Users will define workflows through screenshots, captured interface elements, an
 
 The planned platform will support inspecting web and Windows desktop applications, running robots, reviewing execution logs, and refining workflows.
 
-> **Status:** Workflow editing, automation briefs, the web inspector, CSV/XLSX datasets, the robot framework/catalog, and budgeted Muse workflow clarification/specification confirmation are implemented. Muse code generation, desktop inspection, OCR, and result exports are deferred.
+> **Status:** Workflow editing, automation briefs, the web inspector, CSV/XLSX datasets, the robot framework/catalog, and budgeted Muse clarification, specification confirmation and statically validated draft generation are implemented. Explicit testing/activation of Muse drafts, desktop inspection, OCR, and result exports are deferred.
 
 ## Local setup (Windows PowerShell)
 
@@ -91,11 +91,11 @@ All application API calls, including the explicit connection check, now use a pe
 
 Apply migrations first. See [context composition, limits, pricing configuration, recovery and tests](docs/muse-context-budget.md). No real API call is needed to prepare context or view usage.
 
-### Build with Muse (Phase 3)
+### Build with Muse (Phases 3–4)
 
 Open a project and choose **Build with Muse**. An explicit paid review runs in a background process; the page polls persisted progress. Muse asks at most three questions per reply, with three review attempts per session including the initial review. Proposed changes require confirmation, and user answers become structured robot specification decisions. Local specification editing and final confirmation make no API call.
 
-See [conversation workflow, supported changes, limits, worker recovery and tests](docs/muse-conversation.md). The initial review includes referenced screenshots; follow-ups omit images unless requested. Old messages and unresolved questions are preserved, stale context/forms are blocked, and all paid calls use the existing usage/budget service. **Generate robot** remains disabled until Phase 4; this milestone never generates or executes code.
+See [conversation workflow, supported changes, limits, worker recovery and tests](docs/muse-conversation.md). The initial review includes referenced screenshots; follow-ups omit images unless requested. Old messages and unresolved questions are preserved, stale context/forms are blocked, and all paid calls use the existing usage/budget service. After confirmation, **Generate draft robot** creates a new version with static checks and at most two budgeted repairs. Generated code is never imported, activated or executed in this phase. See [draft generation, validation and recovery](docs/muse-generation.md).
 
 ## Checks
 
@@ -136,7 +136,7 @@ A selection produces a draft tied to its exact step. Saving creates a reusable e
 - Only the main document of the original tab is supported. New tabs/popups are closed; iframe internals, closed shadow roots, canvas, embedded viewers, and complex custom controls are excluded. OCR and visual targeting are future possibilities, not active fallbacks.
 - Click interception is best effort for ordinary HTML controls. Browser-native UI and unusual application event handlers are outside the MVP guarantee. Work on non-critical pages when capturing.
 - The target browser must run in the interactive Windows host session. Docker/headless hosting, multi-user inspection, and production deployment are outside this milestone.
-- Muse clarification now receives filtered ordered instructions, element IDs, highlighted screenshots and structured selectors with a compact framework contract. Code generation remains deferred. No RAG or vector database is used.
+- Muse clarification now receives filtered ordered instructions, element IDs, highlighted screenshots and structured selectors with a compact framework contract. Confirmed specifications can generate drafts; explicit testing and activation remain deferred. No RAG or vector database is used.
 
 ### Browser checks
 
@@ -156,15 +156,15 @@ Projects support an optional **Automation brief**: Goal, Global rules and Succes
 
 `projects.generation_context.assemble_generation_context(project, framework_contract=...)` prepares structured context for Muse. User-authored project data, including the brief, is separate from platform instructions and the supplied framework contract. It includes ordered step instructions, input definitions/mappings, target applications and only referenced saved elements, with locator evidence and screenshot references. It excludes dataset row values and sends nothing externally on its own. Structured project outcome/exception-rule arrays remain empty; confirmed build-session decisions supplement them without inferring configuration from past results.
 
-The brief supplements explicit steps and does not change their targets, mappings or execution settings. Identified contradictions require clarification rather than a silent interpretation. In the conversation schema this is `state=needs_clarification` with targeted questions. This is not a guarantee that every conflict can be found. Actual step edits require explicit proposal confirmation; code generation remains deferred.
+The brief supplements explicit steps and does not change their targets, mappings or execution settings. Identified contradictions require clarification rather than a silent interpretation. In the conversation schema this is `state=needs_clarification` with targeted questions. This is not a guarantee that every conflict can be found. Actual step edits require explicit proposal confirmation; draft generation requires explicit specification confirmation.
 
 ### Python robot framework
 
-The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse generation remains deferred.
+The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse drafts are versioned in the catalog and clearly marked as not activated.
 
 The framework also exposes an injected email adapter for non-UI steps. The fake-only email demo validates simple input substitutions, records named email outcomes, and saves a business-success checkpoint so notification failure cannot repeat completed work. See the [email workflow steps guide](docs/email-workflow-steps.md) for the API, checkpoint behavior, fake-only demo, and tests. No real provider, OAuth, or email account UI is included.
 
-The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse generation and the Create RPA button remain a later milestone.
+The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse draft generation is available from Build with Muse; running generated drafts remains a later milestone.
 
 See [framework API, runnable local demo, commands, and limitations](docs/robot-framework.md). Start with `python manage.py prepare_robot_demo`, run `python manage.py serve_robot_fixture` in another terminal, then use the printed dataset ID with `python manage.py run_robot ROBOT_INVOICE_CHECKS --dataset <id>`. The example's fictional login secrets must be configured as described in that document.
 

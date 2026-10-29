@@ -1,6 +1,6 @@
 # Phase 3 — Build with Muse
 
-Open a project and select **Build with Muse**, at `/projects/<project_id>/build/`. The page clarifies the saved workflow, presents proposed changes for review, and records an explicitly agreed specification. It does not generate source, create a robot build, or execute a robot. The generation button is deliberately disabled until Phase 4.
+Open a project and select **Build with Muse**, at `/projects/<project_id>/build/`. The page clarifies the saved workflow, presents proposed changes for review, and records an explicitly agreed specification. Clarification does not itself generate or execute code. After explicit confirmation, Phase 4 provides a separate paid draft-generation action; see [Muse draft generation](muse-generation.md).
 
 ## Configuration and use
 
@@ -79,4 +79,4 @@ The command closes the operation and, if necessary, its linked active request. U
 
 Tests mock the provider and process launch. They cover free GET/queued workers, structured response limits/schema transport, explicit confirmation, supported/foreign changes, rejected proposal replay prevention, three rounds, local edits, preservation of unresolved decisions, unsupported requests, stale context/forms, CSRF/project scoping, missing credentials, duplicate submissions, usage linkage, safe rendering, confirmation invalidation and abandoned-worker recovery. No automated test calls Meta, sends an email or executes business transactions. Any live check must be explicit and use reviewed context.
 
-Official reference: [Meta structured output and strict schema rules](https://dev.meta.ai/docs/structured-output), verified 2026-10-29. API calls, budget handling and context construction reuse the prior phases. Draft code generation, two bounded code repairs, static compatibility validation, robot build creation and explicit version test execution remain subsequent milestones.
+Official reference: [Meta structured output and strict schema rules](https://dev.meta.ai/docs/structured-output), verified 2026-10-29. API calls, budget handling and context construction reuse the prior phases. Draft generation, up to two bounded code repairs, static compatibility validation and versioned draft storage are now available in Phase 4. Explicit testing and activation of generated versions remain deferred.

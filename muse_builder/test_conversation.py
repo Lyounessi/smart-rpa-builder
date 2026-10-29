@@ -104,7 +104,7 @@ class ConversationTests(TestCase):
         self.assertEqual(len(session.confirmed_hash), 64)
         page = self.client.get(reverse('muse-build',args=[self.project.pk]))
         self.assertContains(page, 'Agreed specification confirmed')
-        self.assertContains(page, 'Generate robot — available in Phase 4')
+        self.assertContains(page, 'Generate draft robot (paid API requests)')
 
     def test_brief_and_step_changes_are_explicit_and_update_snapshot_after_confirmation(self):
         session = self.start()

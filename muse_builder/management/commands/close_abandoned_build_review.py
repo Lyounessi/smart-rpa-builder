@@ -21,7 +21,12 @@ class Command(BaseCommand):
             request = MuseRequest.objects.filter(build_operation=operation, active_slot='local').first()
             if request:
                 close_abandoned(request.pk)
-            fail_operation(operation.pk, 'Review worker stopped. Uncertain API reservations were retained; no automatic retry was made.')
+            message = 'Worker stopped. Uncertain API reservations were retained; no automatic retry was made.'
+            if operation.generation_id:
+                from muse_builder.generation import fail_generation
+                fail_generation(operation.generation_id, message)
+            else:
+                fail_operation(operation.pk, message)
         except (BuildOperation.DoesNotExist, ValueError, ValidationError, MuseError):
             raise CommandError('Review not found or already finalized.') from None
         self.stdout.write('Review closed. No API call made; uncertain charges were retained.')

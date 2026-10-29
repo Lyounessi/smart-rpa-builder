@@ -39,6 +39,23 @@ class MuseService:
             conversation_state=conversation_state, build_operation=build_operation,
             include_images=include_images, extra_policy=CLARIFICATION_POLICY, response_schema=provider_schema())
 
+    def generate_draft(self, job, *, build_operation, previous=None, errors=None):
+        from django.conf import settings
+        from .generation_schema import GENERATION_POLICY, generation_schema
+        try:
+            cap = int(settings.MUSE_GENERATION_OUTPUT_TOKENS)
+            if not 1024 <= cap <= 16384:
+                raise ValueError()
+        except (TypeError,ValueError):
+            raise MuseError('request_limit','MUSE_GENERATION_OUTPUT_TOKENS must be between 1024 and 16384.') from None
+        # The snapshot's project data is already the first text block. Avoid sending it twice.
+        confirmed = {key:value for key,value in job.confirmed_specification.items() if key != 'project_context'}
+        state = {'robot_name':job.robot_name,'confirmed_specification':confirmed,
+                 'confirmed_hash':job.confirmed_hash,'previous_attempt':previous or {},'validation_errors':errors or []}
+        return self._perform('repair' if build_operation.kind == 'repair' else 'generation', snapshot=job.snapshot,
+            max_output_tokens=cap, conversation_state=state, build_operation=build_operation,
+            include_images=build_operation.kind == 'generation', extra_policy=GENERATION_POLICY, response_schema=generation_schema())
+
     def _perform(self, operation, *, snapshot, max_output_tokens, conversation_state=None, build_operation=None,
                  include_images=True, extra_policy='', response_schema=None):
         configuration = MetaConfiguration.from_settings()

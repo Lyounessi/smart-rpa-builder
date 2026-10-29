@@ -1,6 +1,7 @@
 {% extends 'base.html' %}{% block title %}{{ build.robot.name }} · Version {{ build.version }}{% endblock %}
 {% block content %}<a href="{% url 'robot-detail' build.robot_id %}">← {{ build.robot.name }}</a><h1>Version {{ build.version }}</h1><p>{{ build.get_origin_display }} · {{ build.get_status_display }} · {{ build.created_at }}</p>
 <h2>Validation information</h2>{% for item in build.validation_report %}<p>{{ item }}</p>{% empty %}<p>No validation report recorded.</p>{% endfor %}
+{% if build.is_draft %}<aside><strong>Draft — statically validated; not activated.</strong> Explicit review and testing are still required.</aside><p>Framework contract: {{ build.framework_contract_version }} · <code>{{ build.framework_contract_hash }}</code></p><p>Confirmed specification: <code>{{ build.confirmed_specification_hash }}</code></p>{% if build.assumptions %}<h2>Generation assumptions</h2><ul>{% for item in build.assumptions %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}<details><summary>Frozen specification</summary><pre>{{ build.confirmed_specification }}</pre></details>{% endif %}
 <p class="muted">This page displays saved source. Viewing a build never executes it.</p><p>Source fingerprint: <code>{{ build.source_digest|default:'Not recorded' }}</code></p>
 <h2>Saved source</h2>{% for path, source in build.source_files.items %}<details><summary>{{ path }}</summary><pre><code>{{ source }}</code></pre></details>{% empty %}<p>No source recorded for this build.</p>{% endfor %}
 {% endblock %}

@@ -9,6 +9,7 @@ import sys
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, OperationalError, transaction
+from django.db.models import Max
 from django.utils import timezone
 from pydantic import ValidationError as SchemaError
 
@@ -110,7 +111,7 @@ def queue_review(session, *, content, answers=None, include_images=False, expect
             reset_confirmation(session)
             session.state, session.error_message = 'needs_clarification', ''
             session.save()
-            operation = BuildOperation.objects.create(session=session, heartbeat=timezone.now(), round_number=session.rounds_used,
+            operation = BuildOperation.objects.create(session=session, heartbeat=timezone.now(), round_number=(session.operations.aggregate(value=Max('round_number'))['value'] or 0) + 1,
                 expected_revision=revision(session), include_images=include_images)
     except (IntegrityError, OperationalError):
         raise MuseError('operation_active', 'Another Muse review is queued or active. No new review was started.') from None
@@ -119,11 +120,16 @@ def queue_review(session, *, content, answers=None, include_images=False, expect
 
 def launch(operation):
     try:
-        subprocess.Popen([sys.executable, str(settings.BASE_DIR / 'manage.py'), 'review_muse_session', str(operation.pk)],
+        command, identifier = ('review_muse_session', operation.pk) if operation.kind == 'clarification' else ('generate_muse_robot', operation.generation_id)
+        subprocess.Popen([sys.executable, str(settings.BASE_DIR / 'manage.py'), command, str(identifier)],
             cwd=settings.BASE_DIR, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0)
     except OSError:
-        fail_operation(operation.pk, 'Could not start the local review worker. Check the Python environment.')
+        if operation.kind == 'clarification':
+            fail_operation(operation.pk, 'Could not start the local review worker. Check the Python environment.')
+        else:
+            from .generation import fail_generation
+            fail_generation(operation.generation_id, 'Could not start the local generation worker. Check the Python environment.')
 
 
 def start_session(project):
@@ -233,7 +239,7 @@ def fail_operation(operation_id, message):
 def run_review(operation_id, *, service=None):
     from .service import MuseService
     with transaction.atomic():
-        claimed = BuildOperation.objects.filter(pk=operation_id, status='queued', active_slot='local').update(status='running', heartbeat=timezone.now())
+        claimed = BuildOperation.objects.filter(pk=operation_id, kind='clarification', status='queued', active_slot='local').update(status='running', heartbeat=timezone.now())
         if claimed != 1:
             return
         operation = BuildOperation.objects.select_related('session__snapshot','session__project').get(pk=operation_id)

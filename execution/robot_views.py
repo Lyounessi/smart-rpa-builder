@@ -52,6 +52,7 @@ def robot_list(request):
     robots = Robot.objects.select_related('project').annotate(
         latest_version=Subquery(latest_build.values('version')[:1]),
         build_status=Subquery(latest_build.values('status')[:1]),
+        build_is_draft=Subquery(latest_build.values('is_draft')[:1]),
         build_origin=Subquery(latest_build.values('origin')[:1]),
         last_state=Subquery(latest_run.values('state')[:1]), last_run_id=Subquery(latest_run.values('pk')[:1]),
         last_run_at=Subquery(latest_run.values('created_at')[:1]),

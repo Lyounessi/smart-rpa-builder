@@ -119,6 +119,27 @@ class BuildOperation(models.Model):
     active_slot = models.CharField(max_length=10, null=True, unique=True, default='local')
     include_images = models.BooleanField(default=False)
     error_message = models.CharField(max_length=400, blank=True)
+    kind = models.CharField(max_length=20, default='clarification')
+    generation = models.ForeignKey('GenerationJob', null=True, blank=True, on_delete=models.PROTECT, related_name='operations')
+    response_payload = models.JSONField(default=dict)
+    validation_errors = models.JSONField(default=list)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=['session','round_number'], name='unique_session_review_round')]
+
+
+class GenerationJob(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    session = models.ForeignKey(BuildSession, on_delete=models.PROTECT, related_name='generations')
+    snapshot = models.ForeignKey(ContextSnapshot, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    state = models.CharField(max_length=30, default='queued')
+    robot_name = models.CharField(max_length=240)
+    confirmed_specification = models.JSONField()
+    confirmed_hash = models.CharField(max_length=64)
+    result_build = models.OneToOneField('execution.RobotBuild', null=True, blank=True, on_delete=models.PROTECT, related_name='generation_job')
+    error_message = models.CharField(max_length=400, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
