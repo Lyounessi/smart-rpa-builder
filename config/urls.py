@@ -8,6 +8,10 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('projects/<int:project_id>/datasets/new/', input_views.dataset_create, name='dataset-create'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/new/', input_views.dataset_row_edit, name='dataset-row-create'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/edit/', input_views.dataset_row_edit, name='dataset-row-edit'),
+    path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/duplicate/', input_views.dataset_row_edit, {'duplicate':True}, name='dataset-row-duplicate'),
     path('robots/<int:robot_id>/builds/<int:version>/test/', robot_views.test_build, name='robot-build-test'),
     path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
     path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),

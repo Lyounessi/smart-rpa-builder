@@ -31,6 +31,8 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
+**Manual inputs:** Create a dataset without a file, add valid pending inputs, edit unclaimed pending rows, or duplicate completed inputs into new pending rows. Forms use the dataset's saved schema and share upload validation. New executions snapshot their claimed inputs so subsequent edits do not change prior results. See [manual input management and history preservation](docs/manual-inputs.md).
+
 **Phase 5:** Reviewed draft versions can now be explicitly tested on 1–5 pending input rows from their version page. Test history, saved outputs and timing KPIs remain linked to that version; drafts are not automatically activated. See [draft testing, CLI and the isolated greeting demo](docs/draft-testing.md). Testing runs trusted reviewed Python with local permissions; static checks are not a sandbox.
 
 Steps support **Read text → save output** with a named result such as `weather_information`. Extracted text is stored per row attempt and displayed in run results, separately from uploaded input values. See [workflow outputs and framework API](docs/workflow-outputs.md). Muse uses framework contract 1.1; older confirmations require a fresh review. Generated drafts can now be explicitly tested from their version page; production activation remains deferred.

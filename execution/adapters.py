@@ -1,9 +1,11 @@
 """Short database transactions around queue transitions, never browser operations."""
 from collections import Counter
+from copy import deepcopy
 from datetime import timedelta
 from threading import Event, Thread
 
 from django.db import close_old_connections, transaction
+from django.db.models import F
 from django.utils import timezone
 
 from projects.models import DatasetRow
@@ -50,15 +52,22 @@ def create_run(dataset, name, build=None):
 class DjangoQueue:
     def __init__(self, run):
         self.run = run
+        self.selected_rows = {}
 
     def rows(self):
         rows = self.run.dataset.rows.filter(processing_status='pending', errors=[])
         if self.run.is_test:
             rows = rows[:self.run.test_options['row_limit']]
-        return [InputRow(str(row.pk), row.values) for row in rows]
+        selected = [InputRow(str(row.pk), row.values) for row in rows]
+        self.selected_rows = {item.reference:item for item in selected}
+        return selected
 
     def emit(self, kind, row=None, step=None, result=None, summary=None, action_status=None):
         with transaction.atomic():
+            # Serialize queue transitions against manual edits and heartbeats.
+            # SQLite cannot safely upgrade an earlier read snapshot to a writer.
+            if RobotRun.objects.filter(pk=self.run.pk,active_slot='local').update(heartbeat=F('heartbeat')) != 1:
+                raise ExecutionCancelled()
             current = RobotRun.objects.get(pk=self.run.pk)
             if current.active_slot != 'local':
                 raise ExecutionCancelled()
@@ -72,7 +81,12 @@ class DjangoQueue:
                 claimed = DatasetRow.objects.filter(pk=row, dataset=current.dataset, processing_status='pending').update(processing_status='in_progress', claimed_by=current)
                 if claimed != 1:
                     raise RuntimeError('Row is no longer available.')
-                RowAttempt.objects.create(run=current, row_id=row, started_at=timezone.now())
+                values = DatasetRow.objects.get(pk=row,dataset=current.dataset).values
+                selected = self.selected_rows.get(str(row))
+                if selected is not None:
+                    selected.values.clear()
+                    selected.values.update(deepcopy(values))
+                RowAttempt.objects.create(run=current, row_id=row, started_at=timezone.now(),input_snapshot=deepcopy(values))
             elif kind == 'row_finished':
                 attempt = RowAttempt.objects.get(run=current, row_id=row)
                 business_done = attempt.business_completed_at is not None or result.status == 'OK'

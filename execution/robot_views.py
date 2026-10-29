@@ -86,7 +86,8 @@ def robot_detail(request, robot_id):
         attempts = Paginator(run.attempts.select_related('row').prefetch_related('actions').annotate(
             total_attempts=Count('row__rowattempt')).order_by('row__row_number'), 25).get_page(request.GET.get('rows_page'))
         for attempt in attempts:
-            attempt.cells = [attempt.row.values.get(key, '') for key in run.dataset.headers]
+            attempt.cells = [attempt.input_snapshot.get(key, '') if attempt.input_snapshot is not None else 'Not recorded'
+                             for key in run.dataset.headers]
             attempt.elapsed = duration(seconds(attempt.started_at, attempt.finished_at))
     queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[]).aggregate(
         pending=Count('pk', filter=Q(processing_status='pending')), in_progress=Count('pk', filter=Q(processing_status='in_progress')),

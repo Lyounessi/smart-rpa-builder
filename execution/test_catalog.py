@@ -31,7 +31,7 @@ class CatalogTests(TestCase):
             finished_at=self.start + timedelta(seconds=10), counts={'OK':999})
 
     def attempt(self, index, outcome='', business=False, elapsed=None):
-        return RowAttempt.objects.create(run=self.run, row=self.rows[index], outcome=outcome,
+        return RowAttempt.objects.create(run=self.run, row=self.rows[index], outcome=outcome,input_snapshot=self.rows[index].values,
             business_completed_at=self.start if business else None,
             started_at=self.start if elapsed is not None else None,
             finished_at=self.start + timedelta(seconds=elapsed) if elapsed is not None else None)
@@ -92,7 +92,7 @@ class CatalogTests(TestCase):
     def test_row_results_paginate_and_escape_input(self):
         for index in range(26):
             row = DatasetRow.objects.create(dataset=self.dataset, row_number=100 + index, values={'name':f'unique-{index}'})
-            RowAttempt.objects.create(run=self.run, row=row, outcome='OK')
+            RowAttempt.objects.create(run=self.run, row=row, outcome='OK',input_snapshot=row.values)
         response = self.client.get(reverse('robot-detail', args=[self.robot.pk]))
         self.assertContains(response, 'unique-24')
         self.assertNotContains(response, 'unique-25')

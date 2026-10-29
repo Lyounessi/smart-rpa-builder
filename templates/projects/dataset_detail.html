@@ -3,13 +3,14 @@
 {% block content %}
 <a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a>
 <h1>{{ dataset.name }}</h1><p>{{ dataset.source_name }} · {{ dataset.get_status_display }} · {{ dataset.row_count }} records · {{ dataset.invalid_row_count }} invalid</p>
-{% if schema_changed %}<aside>Project inputs have changed since this upload. This dataset retains its original definitions. Upload a new file to use the current definitions.</aside>{% endif %}
-{% if dataset.invalid_row_count %}<p class="errorlist">Correct the rows in your file and upload a new dataset. This preview cannot be confirmed while it contains invalid rows.</p>
-{% elif dataset.status == 'preview' %}<p>Review the records, then confirm this dataset. Confirmation stores it as ready for the future runner; it does not run a robot.</p><form method="post" action="{% url 'dataset-confirm' project.pk dataset.pk %}">{% csrf_token %}<button>Confirm dataset</button></form>
-{% else %}<p>Dataset confirmed. A registered robot can process pending rows using the command-line runner.</p>{% endif %}
+<p><a class="button" href="{% url 'dataset-row-create' project.pk dataset.pk %}">Add input</a></p>
+{% if schema_changed %}<aside>Project inputs have changed. This dataset keeps its saved definitions. Create a new dataset to use the current definitions.</aside>{% endif %}
+{% if dataset.invalid_row_count %}<p class="errorlist">Edit the invalid pending inputs below to correct them. This preview cannot be confirmed while it contains invalid rows.</p>
+{% elif dataset.status == 'preview' %}<p>Review the records, then confirm this dataset. Confirmation makes it available for execution; it does not run a robot.</p>{% if dataset.row_count %}<form method="post" action="{% url 'dataset-confirm' project.pk dataset.pk %}">{% csrf_token %}<button>Confirm dataset</button></form>{% else %}<p>Add at least one valid input before confirming this dataset.</p>{% endif %}
+{% else %}<p>Dataset confirmed. Pending inputs are available for a reviewed robot execution.</p>{% endif %}
 {% for run in dataset.runs.all %}<p><a href="{% url 'run-detail' run.pk %}">{{ run.robot_name }} · {{ run.state }} · {{ run.created_at }}</a></p>{% endfor %}
-<div class="table-scroll"><table><thead><tr><th>File row</th>{% for header in dataset.headers %}<th>{{ header }}</th>{% endfor %}<th>Queue status</th><th>Validation</th></tr></thead><tbody>
-{% for row in table %}<tr><td>{{ row.number }}</td>{% for value in row.cells %}<td>{{ value }}</td>{% endfor %}<td>{{ row.queue_status }}</td><td>{% if row.errors %}<ul class="errorlist">{% for error in row.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% else %}Valid{% endif %}</td></tr>{% endfor %}
+<div class="table-scroll"><table><thead><tr><th>Row</th>{% for header in dataset.headers %}<th>{{ header }}</th>{% endfor %}<th>Queue status</th><th>Validation</th><th>Actions</th></tr></thead><tbody>
+{% for row in table %}<tr><td>{{ row.number }}</td>{% for value in row.cells %}<td>{{ value }}</td>{% endfor %}<td>{{ row.queue_status }}</td><td>{% if row.errors %}<ul class="errorlist">{% for error in row.errors %}<li>{{ error }}</li>{% endfor %}</ul>{% else %}Valid{% endif %}</td><td>{% if row.editable %}<a href="{% url 'dataset-row-edit' project.pk dataset.pk row.id %}">Edit</a>{% elif row.duplicable %}<a href="{% url 'dataset-row-duplicate' project.pk dataset.pk row.id %}">Duplicate as new pending input</a>{% else %}Locked{% endif %}</td></tr>{% endfor %}
 </tbody></table></div>
 <nav aria-label="Dataset pages">{% if page.has_previous %}<a href="?page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?page={{ page.next_page_number }}">Next</a>{% endif %}</nav>
 <details><summary>Input definitions saved with this dataset</summary><ul>{% for input in dataset.schema_snapshot %}<li><strong>{{ input.key }}</strong>: {{ input.data_type }} · {{ input.required|yesno:"required,optional" }} — {{ input.description }}</li>{% endfor %}</ul></details>
