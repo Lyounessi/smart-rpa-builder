@@ -4,10 +4,11 @@ from django.db import IntegrityError
 from execution.models import RobotBuild, RobotRun
 from execution.draft_tests import queue_test, execute_test
 from projects.models import Dataset
+from execution.limits import MAX_TEST_ROWS
 
 
 class Command(BaseCommand):
-    help = 'Test a reviewed draft on 1–5 pending rows. Source runs with local Python permissions.'
+    help = f'Test a reviewed draft on 1–{MAX_TEST_ROWS} pending rows. Source runs with local Python permissions.'
 
     def add_arguments(self, parser):
         parser.add_argument('build_id',type=int)

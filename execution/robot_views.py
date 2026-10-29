@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
 from projects.models import DatasetRow
+from .limits import MAX_TEST_ROWS
 from .models import Robot, RobotBuild, RobotRun, RowAttempt
 
 
@@ -95,7 +96,8 @@ def robot_detail(request, robot_id):
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),
         'latest_build':robot.builds.first(), 'history':history, 'selected_run':run, 'metrics':run_metrics(run),
         'attempts':attempts, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
-        'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists()})
+        'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists(),
+        'max_test_rows':MAX_TEST_ROWS})
 
 
 @require_http_methods(['GET','POST'])
@@ -157,7 +159,7 @@ def run_robot(request,robot_id):
             form.initial['dataset']=dataset.pk
         try:
             limit=int(data.get('row_limit',2))
-            form.initial['row_limit']=limit if 1<=limit<=5 else 2
+            form.initial['row_limit']=limit if 1<=limit<=MAX_TEST_ROWS else 2
         except ValueError:
             pass
         form.initial['record_screen']=data.get('record_screen')=='on'

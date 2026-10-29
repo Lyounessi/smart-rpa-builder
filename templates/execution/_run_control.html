@@ -5,7 +5,7 @@
 {% if active_execution %}<span class="run-state state-running">{% if active_execution.cancel_requested %}Stopping…{% else %}Execution active{% endif %}</span><a href="{% url 'run-detail' active_execution.pk %}">Open active execution →</a>
 {% elif not has_runnable_version %}<span class="run-state">Version required</span><a href="{% url 'muse-build' robot.project_id %}">Build a validated draft first →</a>
 {% elif not queue.pending %}<span class="run-state">No pending inputs</span><a href="{% url 'project-detail' robot.project_id %}">Add or confirm inputs →</a>
-{% else %}<span class="run-state state-ready">{{ queue.pending }} pending inputs</span><span class="robot-run-limit">Reviewed test · up to 5 inputs per run</span>{% endif %}
+{% else %}<span class="run-state state-ready">{{ queue.pending }} pending inputs</span><span class="robot-run-limit">Reviewed test · up to {{ max_test_rows }} inputs per run</span>{% endif %}
 <a class="robot-project-link" href="{% url 'project-detail' robot.project_id %}">View project →</a></div>
 </section>
 <dialog id="robot-run-dialog" aria-labelledby="run-dialog-title"><div id="run-dialog-content"></div></dialog>

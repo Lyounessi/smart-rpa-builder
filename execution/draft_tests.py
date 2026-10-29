@@ -19,6 +19,7 @@ from robot_framework.registry import Registry, robot_name
 from robot_framework.runner import Runner
 from .adapters import create_run, DjangoQueue, LeaseCancellation
 from .models import RobotRun
+from .limits import MAX_TEST_ROWS
 
 
 def reviewed_source(build, digest):
@@ -56,8 +57,8 @@ def input_schema_matches(build,dataset):
 def queue_test(build, dataset, *, reviewed_digest, acknowledged, row_limit=2, record_screen=False):
     if not acknowledged:
         raise ValueError('Review the source and confirm local execution before testing.')
-    if isinstance(row_limit,bool) or not isinstance(row_limit,int) or not 1 <= row_limit <= 5:
-        raise ValueError('Choose between 1 and 5 pending rows.')
+    if isinstance(row_limit,bool) or not isinstance(row_limit,int) or not 1 <= row_limit <= MAX_TEST_ROWS:
+        raise ValueError(f'Choose between 1 and {MAX_TEST_ROWS} pending rows.')
     if dataset.project_id != build.robot.project_id:
         raise ValueError('Choose a dataset from this robot project.')
     name, _ = reviewed_source(build, reviewed_digest)

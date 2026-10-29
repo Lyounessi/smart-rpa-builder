@@ -1,11 +1,12 @@
 from django import forms
 from django.db.models import Count, Q
 from django.urls import reverse
+from .limits import MAX_TEST_ROWS
 
 
 class DraftTestForm(forms.Form):
     dataset = forms.ModelChoiceField(queryset=None)
-    row_limit = forms.IntegerField(min_value=1,max_value=5,initial=2,label='Maximum pending rows')
+    row_limit = forms.IntegerField(min_value=1,max_value=MAX_TEST_ROWS,initial=2,label='Maximum pending rows')
     record_screen = forms.BooleanField(required=False,label='Record browser page video')
     reviewed_digest = forms.CharField(widget=forms.HiddenInput)
     acknowledged = forms.BooleanField(label='I reviewed this source version and allow it to run locally, act on its target application and update the selected input rows.')

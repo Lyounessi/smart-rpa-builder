@@ -74,10 +74,11 @@ class RunControlTests(TestCase):
 
     def test_valid_post_uses_selected_version_and_redirects_htmx_to_live_run(self):
         with patch('execution.draft_tests.launch_test') as launch:
-            page=self.client.post(self.url,self.data(),HTTP_HX_REQUEST='true')
+            page=self.client.post(self.url,self.data(row_limit=50),HTTP_HX_REQUEST='true')
         run=RobotRun.objects.get()
         self.assertEqual(run.build_id,self.build.pk)
         self.assertEqual(run.test_options['planned_rows'],2)
+        self.assertEqual(run.test_options['row_limit'],50)
         self.assertEqual(page.headers['HX-Redirect'],reverse('run-detail',args=[run.pk]))
         launch.assert_called_once()
         self.assertContains(self.client.get(reverse('robot-detail',args=[self.robot.pk])),'Open active execution')
@@ -94,7 +95,7 @@ class RunControlTests(TestCase):
     def test_missing_review_stale_digest_limits_and_foreign_choices_are_rejected(self):
         other=Project.objects.create(name='Other')
         dataset=Dataset.objects.create(project=other,name='Other',source_name='fixture',schema_snapshot=[],headers=[],status='ready')
-        for changes in [{'acknowledged':''},{'reviewed_digest':'old'},{'row_limit':6},{'dataset':dataset.pk}]:
+        for changes in [{'acknowledged':''},{'reviewed_digest':'old'},{'row_limit':51},{'dataset':dataset.pk}]:
             with patch('execution.draft_tests.launch_test') as launch:
                 page=self.client.post(self.url,self.data(**changes),HTTP_HX_REQUEST='true')
             self.assertEqual(page.status_code,200)

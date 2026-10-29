@@ -1,5 +1,5 @@
 <div class="run-dialog-heading"><div><p class="eyebrow">Local robot execution</p><h2 id="run-dialog-title">Run robot</h2><p class="muted">{{ robot.name }}</p></div><a class="dialog-close secondary button" href="{% url 'robot-detail' robot.pk %}" data-close-run-dialog aria-label="Close run dialog">×</a></div>
-<div class="run-limit-note"><strong>Small test run</strong><span>Process 1–5 pending inputs. Email is simulated.</span></div>
+<div class="run-limit-note"><strong>Small test run</strong><span>Process 1–{{ form.row_limit.field.max_value }} pending inputs. Email is simulated.</span></div>
 {% if run_block %}<aside role="alert">{{ run_block }} {% if active_execution %}<a href="{% url 'run-detail' active_execution.pk %}">Open active execution</a>{% else %}<a href="{% url 'project-detail' robot.project_id %}">Open project</a>{% endif %}</aside>{% endif %}
 <form method="post" action="{% url 'robot-run' robot.pk %}" hx-post="{% url 'robot-run' robot.pk %}" hx-target="#run-dialog-content" hx-swap="innerHTML" hx-disabled-elt="find button[type='submit']">
 {% csrf_token %}{{ form.non_field_errors }}
