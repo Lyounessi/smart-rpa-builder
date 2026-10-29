@@ -52,15 +52,35 @@
       const label = Array.from(el.labels || []).map(item => item.innerText.trim()).join(' ').slice(0,160);
       const labelled = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(id => document.getElementById(id)?.textContent || '').join(' ').trim();
       const text = !el.closest('[contenteditable]:not([contenteditable="false"])') && ['button','a','option','summary','label','h1','h2','h3','h4','h5','h6','p','span'].includes(tag) ? (el.innerText || '').trim().slice(0,160) : '';
+      // Submit/button values are visible button captions, not entered field data.
+      const buttonText = tag === 'input' && ['button','submit','reset'].includes(el.type) ? (el.getAttribute('value') || '').slice(0,160) : '';
       const attributes = {};
-      for (const key of ['id','name','type','placeholder','data-testid','aria-label','title','alt']) {
+      const attributeKeys = ['id','name','type','placeholder','data-testid','aria-label','title','alt','formcontrolname','ng-reflect-name','data-qa','data-cy','data-test','data-automation-id'];
+      for (const key of attributeKeys) {
         const value = el.getAttribute(key);
         if (value) attributes[key] = value.slice(0,200);
       }
+      // Read only bounded structure/labels, never control values or reflected models.
+      const ancestors = [];
+      let nearby_label = '';
+      for (let parent=el.parentElement, depth=0; parent && depth<3 && !['BODY','HTML'].includes(parent.tagName); parent=parent.parentElement, depth++) {
+        const parentAttributes = {};
+        for (const key of ['id','data-testid','data-qa','data-cy','data-test','data-automation-id','aria-label']) {
+          const value = parent.getAttribute(key);
+          if (value) parentAttributes[key] = value.slice(0,200);
+        }
+        const labels = Array.from(parent.children).filter(child => child.tagName === 'LABEL');
+        const controls = parent.querySelectorAll('input:not([type="hidden"]),textarea,select');
+        const hint = labels.length === 1 && controls.length === 1 && controls[0] === el ? (labels[0].textContent || '').trim().slice(0,160) : '';
+        if (!nearby_label && hint) nearby_label = hint;
+        ancestors.push({tag:parent.tagName.toLowerCase(),attributes:parentAttributes,
+          classes:Array.from(parent.classList).slice(0,12).map(value => value.slice(0,100)),label:hint});
+      }
       let role = el.getAttribute('role') || ({button:'button',a:el.hasAttribute('href')?'link':'',textarea:'textbox',select:'combobox',img:'img',summary:'button'}[tag] || '');
       if (/^h[1-6]$/.test(tag) && !role) role = 'heading';
-      if (tag === 'input') role = ({checkbox:'checkbox',radio:'radio',button:'button',submit:'button',range:'slider',number:'spinbutton',password:''}[el.type] ?? 'textbox');
-      return {tag, role, name:(el.getAttribute('aria-label') || labelled || label || attributes.alt || text || attributes.title || '').slice(0,160), label, attributes};
+      if (tag === 'input') role = ({checkbox:'checkbox',radio:'radio',button:'button',submit:'button',reset:'button',range:'slider',number:'spinbutton',password:''}[el.type] ?? 'textbox');
+      return {tag, role, name:(el.getAttribute('aria-label') || labelled || label || attributes.alt || buttonText || text || attributes.title || '').slice(0,160),
+        label, attributes, nearby_label, ancestors, classes:Array.from(el.classList).slice(0,12).map(value => value.slice(0,100))};
     },
     selected: () => chosen,
   };

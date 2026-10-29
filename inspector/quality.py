@@ -19,7 +19,15 @@ def assess_id(value):
 
 
 def fingerprint(metadata):
-    return {key: metadata.get(key, '') for key in ('tag', 'role', 'name', 'label')}
+    result={key: metadata.get(key, '') for key in ('tag', 'role', 'name', 'label')}
+    if metadata.get('nearby_label'):
+        result['nearby_label']=metadata['nearby_label']
+    semantic={key:metadata.get('attributes',{}).get(key) for key in
+        ['data-testid','data-qa','data-cy','data-test','data-automation-id','formcontrolname','ng-reflect-name']
+        if metadata.get('attributes',{}).get(key)}
+    if semantic:
+        result['semantic_attributes']=semantic
+    return result
 
 
 def initial_quality(metadata, locator, document_id, session_id):

@@ -46,9 +46,16 @@ async def validate(page, definition, baseline=None):
     if baseline:
         from .quality import fingerprint
         metadata = await target.evaluate('(el) => window.__smartRpa.metadata(el)')
-        matches = fingerprint(metadata) == baseline and any(baseline.get(key) for key in ('name', 'label'))
+        current=fingerprint(metadata)
+        # Compare recorded fields only: older captures lack the new optional hints.
+        has_identity=any(baseline.get(key) for key in ('name','label','nearby_label','semantic_attributes'))
+        matches=has_identity and all(
+            all(current.get(key,{}).get(attribute)==expected for attribute,expected in value.items())
+            if key=='semantic_attributes' else current.get(key)==value for key,value in baseline.items())
         result.update(identity_matches=bool(matches), observed_id=metadata.get('attributes', {}).get('id', ''),
                       document_id=await page.evaluate('() => window.__smartRpa.documentId'))
-        if not matches:
+        if has_identity and not matches:
             result.update(status='identity_mismatch', message='One visible match exists, but its semantic identity differs or cannot be verified. Review or recapture it.')
+        elif not has_identity:
+            result['message']='Exactly one visible match; semantic identity is unverified. Test again after page changes.'
     return result

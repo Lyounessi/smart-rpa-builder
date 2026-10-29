@@ -14,7 +14,8 @@ from django.utils import timezone
 from inspector.locators import resolve, safe_url, validate
 from inspector.models import CapturedElement, InspectionCommand, InspectionSession
 from inspector.services import finish_session, persist_draft
-from inspector.quality import assess_id, initial_quality, record_observation
+from inspector.quality import initial_quality, record_observation
+from inspector.candidates import candidates
 
 
 @sync_to_async
@@ -63,27 +64,16 @@ def server_alive(url, instance):
 
 
 async def choose_locator(page, metadata):
-    attrs = metadata['attributes']
-    candidates = []
-    if attrs.get('data-testid'):
-        candidates.append({'strategy':'test_id', 'value':attrs['data-testid']})
-    if metadata['role'] and metadata['name']:
-        candidates.append({'strategy':'role', 'role':metadata['role'], 'name':metadata['name']})
-    if metadata['label']:
-        candidates.append({'strategy':'label', 'value':metadata['label']})
-    for attribute in ['id', 'name', 'placeholder', 'aria-label']:
-        if attribute == 'id' and assess_id(attrs.get('id'))['assessment'] == 'suspected_generated':
-            continue
-        if attrs.get(attribute):
-            # JSON string escaping is also valid for CSS quoted attribute strings.
-            candidates.append({'strategy':'css', 'value':f"{metadata['tag']}[{attribute}={json.dumps(attrs[attribute])}]"})
-    if metadata['name'] and metadata['tag'] in {'p', 'span', 'label'}:
-        candidates.append({'strategy':'text', 'value':metadata['name']})
-    for definition in candidates:
-        target = resolve(page, definition)
-        if await target.count() == 1 and await target.evaluate('(el) => el === window.__smartRpa.selected()'):
-            return definition
-    raise ValueError('No unique stable selector found. Select a labelled control or an element with a stable ID.')
+    from playwright.async_api import Error as PlaywrightError
+    for definition in candidates(metadata):
+        try:
+            target = resolve(page, definition)
+            if await target.count() == 1 and await target.is_visible() and await target.evaluate('(el) => el === window.__smartRpa.selected()'):
+                return definition
+        except PlaywrightError:
+            if page.is_closed():
+                raise
+    raise ValueError('No unique visible selector found using labels, semantic attributes, IDs, classes or parent context. Select the actual control or refine the page context. OCR is not implemented.')
 
 
 async def capture(page, session_id, step_id=None):
