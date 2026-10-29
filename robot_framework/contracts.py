@@ -46,6 +46,7 @@ class RowResult:
     failed_step: str | None = None
     evidence: list[str] = field(default_factory=list)
     business_completed: bool = False
+    outputs: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

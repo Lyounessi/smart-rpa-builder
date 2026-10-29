@@ -6,7 +6,7 @@ Users will define workflows through screenshots, captured interface elements, an
 
 The planned platform will support inspecting web and Windows desktop applications, running robots, reviewing execution logs, and refining workflows.
 
-> **Status:** Workflow editing, the local web inspector, project input definitions, and CSV/XLSX dataset preview are implemented. Desktop inspection, OCR, Muse integration, robot execution, and result exports are deferred.
+> **Status:** Workflow editing, automation briefs, the web inspector, CSV/XLSX datasets, the robot framework/catalog, and budgeted Muse clarification, specification confirmation and statically validated draft generation are implemented. Explicit tests of reviewed Muse drafts are available. Automatic production activation, desktop inspection, OCR, and result exports are deferred.
 
 ## Local setup (Windows PowerShell)
 
@@ -31,6 +31,10 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 
 ## Workflow editor
 
+**Phase 5:** Reviewed draft versions can now be explicitly tested on 1–5 pending input rows from their version page. Test history, saved outputs and timing KPIs remain linked to that version; drafts are not automatically activated. See [draft testing, CLI and the isolated greeting demo](docs/draft-testing.md). Testing runs trusted reviewed Python with local permissions; static checks are not a sandbox.
+
+Steps support **Read text → save output** with a named result such as `weather_information`. Extracted text is stored per row attempt and displayed in run results, separately from uploaded input values. See [workflow outputs and framework API](docs/workflow-outputs.md). Muse uses framework contract 1.1; older confirmations require a fresh review. Generated drafts can now be explicitly tested from their version page; production activation remains deferred.
+
 - One project represents one workflow, with a name and optional description.
 - Project creation and editing include an application setup: web application or multiple applications (web only for now). Desktop is visible but disabled and rejected server-side until desktop support is implemented. Existing projects default to web. This setup describes workflow intent; application windows remain separate reusable entities, and it does not impose a window-count limit.
 - Target applications store a name and HTTP(S) starting URL. Embedded URL credentials are rejected; do not put passwords or tokens in URLs.
@@ -49,13 +53,13 @@ Open http://127.0.0.1:8000, create a project, add a target application with its 
 2. Choose **Upload input file**, name the dataset, and upload UTF-8 comma-separated CSV or a single-worksheet `.xlsx` workbook.
 3. The first row must contain every defined input key exactly once, with no additional columns. Column order can differ. Required means each record needs a non-empty value; optional columns must still have headers.
 4. Review the paginated table (50 records per page). Empty required values and invalid numbers show errors. Correct your source file and upload a new dataset if any rows are invalid.
-5. Choose **Confirm dataset** when all records are valid. The dataset becomes ready for the future runner; no robot executes in this milestone. Reopen it from the project's dataset list after restarting Django.
+5. Choose **Confirm dataset** when all records are valid. The dataset becomes ready for registered robots; confirmation alone executes nothing. Reopen it from the project's dataset list after restarting Django.
 
 Limits: 2 MB uploaded file, 1,000 data rows including blank rows, 30 inputs/columns, and 2,000 characters per cell. Completely blank rows are skipped. CSV uses UTF-8 (BOM accepted), commas and standard quoting. XLSX formulas and error cells are rejected; paste values before uploading. Multiple worksheets, legacy `.xls`, macros, encrypted workbooks, column mapping, in-app record editing, deletion, and result downloads are outside this milestone.
 
 Cells and headers are trimmed. Text identifiers preserve leading zeros when supplied as text; Excel numeric formatting is not preserved, so store identifiers as text cells. Numbers must be finite, at most 30 digits, with a decimal point and no thousands separators. Decimal values are stored as strings with the number type in the schema to avoid floating-point precision loss. Optional empty values are empty strings.
 
-Parsed rows and a snapshot of their input definitions are stored in SQLite; the original upload is not retained. Later input edits do not rewrite historical datasets. The preview warns when current project definitions differ from its snapshot. Dataset preview/ready states describe data preparation, not robot execution outcomes. Future execution will add per-row results and CSV/XLSX result exports.
+Parsed rows and a snapshot of their input definitions are stored in SQLite; the original upload is not retained. Later input edits do not rewrite historical datasets. The preview warns when current project definitions differ from its snapshot. Dataset preview/ready states describe preparation; row processing states and attempts are tracked separately by the runner. CSV/XLSX result exports remain deferred.
 
 Never upload credentials. Importing does not evaluate formulas or execute CSV cell content. Read-only Django admin views are available for input definitions, datasets and rows. Both runtime lock files include the XLSX reader and XML parser protection.
 
@@ -75,7 +79,27 @@ Optional Django admin account:
 - `requirements.txt` allows patch updates within Django 5.2 LTS. `requirements.lock.txt` records the exact verified runtime dependencies; install it instead for a reproducible environment.
 - `requirements-inspector.txt` adds Playwright and Pillow. `requirements-inspector.lock.txt` pins the complete verified inspector environment. Install Chromium separately with the command above.
 - HTMX is vendored in `static/vendor/` with its license. Django retains CSRF protection; future mutation forms must include `{% csrf_token %}`. `static/app.js` forwards that token for same-origin HTMX requests.
-- No Muse API key is needed at this stage. Never commit actual credentials or include them in model context.
+- Normal workflow/inspector/runner features need no Muse key. The backend connection check and explicit project reviews use `MUSE_APIKEY` from the local environment; see [Muse setup](docs/muse-integration.md). Never commit actual credentials or include them in model context.
+
+## Muse API connection (Phase 1)
+
+Set `MUSE_APIKEY` in your ignored `.env`, optionally set `META_MODEL` (default `muse-spark-1.3`) and `META_TIMEOUT_SECONDS` (default 45), then run `python manage.py check_muse_connection` through the project's virtual environment. This explicitly makes one small paid request with a fixed prompt, a 128-token output cap, and SDK retries disabled. It sends no project data and never executes a robot.
+
+See [configuration, safe errors, tests and current limits](docs/muse-integration.md). The API key stays backend-only, and no connection check runs automatically.
+
+### Context and spending controls (Phase 2)
+
+`python manage.py prepare_muse_context <project_id>` saves a filtered local snapshot with a compact versioned Markdown contract, one example, project JSON and deduplicated referenced screenshots. It sends nothing to Meta. Specification and image-content hashes detect changes before and during a request; stale responses are discarded.
+
+All application API calls, including the explicit connection check, now use a persistent usage ledger and conservative reservations. The default local limit is $140 of the $150 hackathon allowance, configurable with `MUSE_BUDGET_USD`; one Muse operation is active at a time. Unknown usage retains its full reservation. Open **Muse usage** (`/muse/usage/`) to inspect estimates and commitments. These are local estimates, not a provider billing guarantee or account balance.
+
+Apply migrations first. See [context composition, limits, pricing configuration, recovery and tests](docs/muse-context-budget.md). No real API call is needed to prepare context or view usage.
+
+### Build with Muse (Phases 3–4)
+
+Open a project and choose **Build with Muse**. An explicit paid review runs in a background process; the page polls persisted progress. Muse asks at most three questions per reply, with three review attempts per session including the initial review. Proposed changes require confirmation, and user answers become structured robot specification decisions. Local specification editing and final confirmation make no API call.
+
+See [conversation workflow, supported changes, limits, worker recovery and tests](docs/muse-conversation.md). The initial review includes referenced screenshots; follow-ups omit images unless requested. Old messages and unresolved questions are preserved, stale context/forms are blocked, and all paid calls use the existing usage/budget service. After confirmation, **Generate draft robot** creates a new version with static checks and at most two budgeted repairs. Generated code is never imported, activated or executed in this phase. See [draft generation, validation and recovery](docs/muse-generation.md).
 
 ## Checks
 
@@ -116,7 +140,7 @@ A selection produces a draft tied to its exact step. Saving creates a reusable e
 - Only the main document of the original tab is supported. New tabs/popups are closed; iframe internals, closed shadow roots, canvas, embedded viewers, and complex custom controls are excluded. OCR and visual targeting are future possibilities, not active fallbacks.
 - Click interception is best effort for ordinary HTML controls. Browser-native UI and unusual application event handlers are outside the MVP guarantee. Work on non-critical pages when capturing.
 - The target browser must run in the interactive Windows host session. Docker/headless hosting, multi-user inspection, and production deployment are outside this milestone.
-- Muse integration is deferred. The future context will include ordered instructions, element IDs, highlighted screenshots, and structured selectors, together with framework documentation. No RAG or vector database is used.
+- Muse clarification now receives filtered ordered instructions, element IDs, highlighted screenshots and structured selectors with a compact framework contract. Confirmed specifications can generate drafts, followed by explicit reviewed tests. Production activation remains deferred. No RAG or vector database is used.
 
 ### Browser checks
 
@@ -134,17 +158,17 @@ Remove-Item Env:RUN_BROWSER_TESTS
 
 Projects support an optional **Automation brief**: Goal, Global rules and Success criteria (up to 5,000 characters each). Set these when creating/editing a project or use the dedicated Add/Edit automation brief button on its detail page. Existing projects remain valid with all fields empty; briefs can also be cleared. Keep credentials out of these fields.
 
-`projects.generation_context.assemble_generation_context(project, framework_contract=...)` prepares structured context for the future Muse integration. User-authored project data, including the brief, is separate from platform instructions and the supplied framework contract. It includes ordered step instructions, input definitions/mappings, target applications and only referenced saved elements, with locator evidence and screenshot references. It excludes dataset row values and sends nothing externally. Structured expected outcomes and exception rules are empty while no such configuration exists; they are not inferred from past execution results.
+`projects.generation_context.assemble_generation_context(project, framework_contract=...)` prepares structured context for Muse. User-authored project data, including the brief, is separate from platform instructions and the supplied framework contract. It includes ordered step instructions, input definitions/mappings, target applications and only referenced saved elements, with locator evidence and screenshot references. It excludes dataset row values and sends nothing externally on its own. Structured project outcome/exception-rule arrays remain empty; confirmed build-session decisions supplement them without inferring configuration from past results.
 
-The brief supplements explicit steps and does not change their targets, mappings or execution settings. Generation instructions require a clear `clarification_required` response when an identified contradiction needs resolution, rather than silently choosing an interpretation. This is a contract for the upcoming integration, not an implemented contradiction detector or a guarantee that every conflict can be found. Muse calls and generation response handling remain deferred.
+The brief supplements explicit steps and does not change their targets, mappings or execution settings. Identified contradictions require clarification rather than a silent interpretation. In the conversation schema this is `state=needs_clarification` with targeted questions. This is not a guarantee that every conflict can be found. Actual step edits require explicit proposal confirmation; draft generation requires explicit specification confirmation.
 
 ### Python robot framework
 
-The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse generation remains deferred.
+The [Robots catalog](docs/robot-catalog.md) at `/robots/` shows registered versions, run history, treated inputs, separate business/notification results and timing KPIs. Runs keep their saved build reference. Use `python manage.py sync_robot_catalog` to register existing manual demo projects without executing them. Muse drafts are versioned in the catalog and clearly marked as not activated.
 
 The framework also exposes an injected email adapter for non-UI steps. The fake-only email demo validates simple input substitutions, records named email outcomes, and saves a business-success checkpoint so notification failure cannot repeat completed work. See the [email workflow steps guide](docs/email-workflow-steps.md) for the API, checkpoint behavior, fake-only demo, and tests. No real provider, OAuth, or email account UI is included.
 
-The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse generation and the Create RPA button remain a later milestone.
+The first framework version runs an explicitly registered robot by name against pending rows in a confirmed dataset. It persists progress, row attempts and queue status, supports cooperative cancellation, and optionally records browser-page video. The framework owns lifecycle and resources; robot code owns login, business actions, success checks and recovery. Muse draft generation is available from Build with Muse; running generated drafts remains a later milestone.
 
 See [framework API, runnable local demo, commands, and limitations](docs/robot-framework.md). Start with `python manage.py prepare_robot_demo`, run `python manage.py serve_robot_fixture` in another terminal, then use the printed dataset ID with `python manage.py run_robot ROBOT_INVOICE_CHECKS --dataset <id>`. The example's fictional login secrets must be configured as described in that document.
 
@@ -152,7 +176,7 @@ See [framework API, runnable local demo, commands, and limitations](docs/robot-f
 
 In the step editor, choose **Click**, **Fill**, or **Select option**. Fill and Select option require an **Input column** from the current project's process inputs (for example `name`). This stores a reference to the input definition, so the future runner can use that column's value from each dataset row. Click clears the input mapping. Captured targets remain optional while drafting a step.
 
-Existing steps retain their instructions and targets and show **Choose an action** until edited. Referenced input definitions cannot be deleted. Actions and mappings are visible in the workflow and Django admin; robot execution and Muse integration remain future work.
+Existing steps retain their instructions and targets and show **Choose an action** until edited. Referenced input definitions cannot be deleted. Actions and mappings are visible in the workflow and Django admin, available to the runner and included in Muse context.
 
 This project is being built during the hackathon, from October 26 to November 4, 2026. Implemented features and setup instructions will be added as development progresses.
 

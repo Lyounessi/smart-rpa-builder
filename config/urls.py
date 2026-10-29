@@ -4,8 +4,19 @@ from django.urls import include, path
 from projects import views
 from projects import input_views
 from execution import robot_views
+from muse_builder import views as muse_views
+from muse_builder import build_views
 
 urlpatterns = [
+    path('robots/<int:robot_id>/builds/<int:version>/test/', robot_views.test_build, name='robot-build-test'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
+    path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),
+    path('projects/<int:project_id>/build/start/', build_views.start, name='muse-build-start'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/reply/', build_views.reply, name='muse-build-reply'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/messages/<int:message_id>/review/', build_views.proposals, name='muse-proposal-review'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/specification/', build_views.specification, name='muse-specification-edit'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/confirm/', build_views.confirm, name='muse-specification-confirm'),
+    path('muse/usage/', muse_views.usage, name='muse-usage'),
     path('robots/', robot_views.robot_list, name='robot-list'),
     path('robots/<int:robot_id>/', robot_views.robot_detail, name='robot-detail'),
     path('robots/<int:robot_id>/builds/<int:version>/', robot_views.build_detail, name='robot-build-detail'),

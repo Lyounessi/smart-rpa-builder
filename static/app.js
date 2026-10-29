@@ -14,6 +14,13 @@ function updateStepInputs(root = document) {
     input.closest('p').hidden = !usesInput;
     input.disabled = !usesInput;
     input.required = usesInput;
+    const output = action.form.querySelector('[data-step-output]');
+    if (output) {
+      const readsText = action.value === 'read_text';
+      output.closest('p').hidden = !readsText;
+      output.disabled = !readsText;
+      output.required = readsText;
+    }
   });
 }
 document.addEventListener('DOMContentLoaded', () => updateStepInputs());

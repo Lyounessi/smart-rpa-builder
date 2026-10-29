@@ -107,3 +107,7 @@ Remove-Item Env:RUN_BROWSER_TESTS
 Fake-adapter tests cover lifecycle, row outcomes, continuation/recovery, cancellation, partial setup, teardown preservation, invalid registry names, and recording/resource cleanup. Email tests cover one-pass substitution, schema preflight, message validation, bounded-timeout propagation, redacted diagnostics, accepted/simulated/failed/uncertain results, no retries, checkpoint preservation, cancellation, and lease recovery. No test sends real email. Database tests cover claims, outcome persistence, cancellation, expired leases, and active-run exclusion. Real-browser smoke tests use a loopback fixture, two rows, real saved locator UUIDs, persisted progress/results, and finalized nonempty WebM output for the original robot and fake-email extension.
 
 This version supports one local visible Chromium session per run, one original page, and sequential rows. Unknown dialogs/popups cause failure and are not dismissed. MFA/CAPTCHA, desktop automation, schedules, multi-VM workers, exports, Create RPA UI, Muse calls, automatic code installation, and production credential management are deferred.
+
+## Named extraction outputs
+
+`ctx.extract_text(element_id, output_key)` reads captured text and saves a named per-row output. Results and business checkpoints persist these values to `RowAttempt.outputs`, separately from inputs. See [workflow outputs](workflow-outputs.md) for limits, failure behavior and examples.

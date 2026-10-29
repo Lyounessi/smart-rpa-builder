@@ -1,0 +1,121 @@
+"""Application API: fixed context, spending gate and ledger around one request."""
+from dataclasses import dataclass, field
+from time import perf_counter
+
+from .budget import reserve, settle
+from .client import (CHECK_MAX_OUTPUT_TOKENS, ConnectionCheck, MetaClient,
+                     MetaConfiguration, MuseError, token_count)
+from .context import MAX_TEXT_BYTES, canonical, request_context, require_current
+
+REJECTED_CODES = {'authentication', 'permission', 'billing', 'model_not_found', 'rate_limited', 'invalid_request'}
+
+
+@dataclass(frozen=True)
+class MuseResponse:
+    request_id: str
+    model: str
+    text: str = field(repr=False)
+    duration_seconds: float
+    input_tokens: int | None
+    output_tokens: int | None
+    cached_tokens: int | None
+
+
+class MuseService:
+    def __init__(self, *, client=None):
+        self.client = client if client is not None else MetaClient()
+
+    def check_connection(self):
+        result = self._perform('connection_check', snapshot=None, max_output_tokens=CHECK_MAX_OUTPUT_TOKENS)
+        return ConnectionCheck(model=result.model, duration_seconds=result.duration_seconds, input_tokens=result.input_tokens,
+            output_tokens=result.output_tokens, cached_tokens=result.cached_tokens, request_id=result.request_id)
+
+    def review_context(self, snapshot, *, max_output_tokens=1024):
+        return self._perform('context_review', snapshot=snapshot, max_output_tokens=max_output_tokens)
+
+    def clarify(self, snapshot, conversation_state, *, build_operation, include_images=False):
+        from .conversation_schema import CLARIFICATION_POLICY, provider_schema
+        return self._perform('clarification', snapshot=snapshot, max_output_tokens=1536,
+            conversation_state=conversation_state, build_operation=build_operation,
+            include_images=include_images, extra_policy=CLARIFICATION_POLICY, response_schema=provider_schema())
+
+    def generate_draft(self, job, *, build_operation, previous=None, errors=None):
+        from django.conf import settings
+        from .generation_schema import GENERATION_POLICY, generation_schema
+        try:
+            cap = int(settings.MUSE_GENERATION_OUTPUT_TOKENS)
+            if not 1024 <= cap <= 16384:
+                raise ValueError()
+        except (TypeError,ValueError):
+            raise MuseError('request_limit','MUSE_GENERATION_OUTPUT_TOKENS must be between 1024 and 16384.') from None
+        # The snapshot's project data is already the first text block. Avoid sending it twice.
+        confirmed = {key:value for key,value in job.confirmed_specification.items() if key != 'project_context'}
+        state = {'robot_name':job.robot_name,'confirmed_specification':confirmed,
+                 'confirmed_hash':job.confirmed_hash,'previous_attempt':previous or {},'validation_errors':errors or []}
+        return self._perform('repair' if build_operation.kind == 'repair' else 'generation', snapshot=job.snapshot,
+            max_output_tokens=cap, conversation_state=state, build_operation=build_operation,
+            include_images=build_operation.kind == 'generation', extra_policy=GENERATION_POLICY, response_schema=generation_schema())
+
+    def _perform(self, operation, *, snapshot, max_output_tokens, conversation_state=None, build_operation=None,
+                 include_images=True, extra_policy='', response_schema=None):
+        configuration = MetaConfiguration.from_settings()
+        instructions = None
+        if snapshot is None:
+            if operation != 'connection_check':
+                raise MuseError('invalid_operation', 'This operation requires a project snapshot.')
+            input = 'Reply exactly OK.'
+        else:
+            require_current(snapshot)
+            instructions, input = request_context(snapshot, include_images=include_images)
+        if conversation_state is not None:
+            input[0]['content'].append({'type':'input_text','text':'Conversation state: ' + canonical(conversation_state)})
+        if extra_policy:
+            instructions += '\n\n' + extra_policy
+        if isinstance(input, list):
+            size = len((instructions or '').encode('utf-8')) + sum(len(item['text'].encode('utf-8'))
+                for message in input for item in message['content'] if item['type'] == 'input_text')
+            if size > MAX_TEXT_BYTES:
+                raise MuseError('context_limit', 'Conversation context exceeds the text limit. Edit the specification or start a new session.')
+        request = reserve(operation, configuration.model, max_output_tokens, snapshot, build_operation)
+        started = perf_counter()
+        sent = False
+        try:
+            if snapshot is not None:
+                require_current(snapshot)
+            sent = True
+            options = {'response_schema':response_schema} if response_schema is not None else {}
+            response = self.client.request(input=input, instructions=instructions,
+                max_output_tokens=max_output_tokens, configuration=configuration, **options)
+        except MuseError as error:
+            settle(request.pk, outcome='rejected' if not sent or error.code in REJECTED_CODES else 'uncertain',
+                duration=perf_counter() - started, error_code=error.code, rejected=not sent or error.code in REJECTED_CODES)
+            raise
+        except BaseException as error:
+            settle(request.pk, outcome='uncertain', duration=perf_counter() - started, error_code='interrupted')
+            if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                raise
+            raise MuseError('provider', 'Muse request did not finish. Its conservative reservation is retained.') from None
+        usage = getattr(response, 'usage', None)
+        input_tokens = token_count(getattr(usage, 'input_tokens', None))
+        output_tokens = token_count(getattr(usage, 'output_tokens', None))
+        cached_tokens = token_count(getattr(getattr(usage, 'input_tokens_details', None), 'cached_tokens', None))
+        try:
+            text = response.output_text
+            valid = response.status == 'completed' and isinstance(text, str) and bool(text.strip())
+        except Exception:
+            text, valid = '', False
+        error = None
+        if not valid or (operation == 'connection_check' and text.strip() != 'OK'):
+            error = MuseError('unexpected_response', 'Muse returned an incomplete or unexpected response. Usage was recorded; no retry was made.')
+        if snapshot is not None:
+            try:
+                require_current(snapshot)
+            except MuseError:
+                error = MuseError('stale_specification', 'The project changed during the request. Response discarded; prepare a new snapshot.')
+        elapsed = perf_counter() - started
+        settle(request.pk, outcome='stale' if error and error.code == 'stale_specification' else 'failed' if error else 'success',
+            duration=elapsed, input_tokens=input_tokens, output_tokens=output_tokens, cached_tokens=cached_tokens,
+            error_code=error.code if error else '')
+        if error:
+            raise error
+        return MuseResponse(str(request.pk), configuration.model, text, elapsed, input_tokens, output_tokens, cached_tokens)

@@ -1,0 +1,21 @@
+from robot_framework.base import BaseRobot
+from robot_framework.contracts import BusinessRejection
+
+class ExampleRobot(BaseRobot):
+    # Replace these placeholders with actual IDs from the supplied project.
+    def setup(self, ctx):
+        with ctx.step('prepare'):
+            ctx.navigate('APPLICATION_ID')
+            ctx.assert_visible('NAME_ELEMENT_ID')
+
+    def process(self, ctx, inputs):
+        with ctx.step('fill_name'):
+            ctx.fill('NAME_ELEMENT_ID', inputs['name'])
+        with ctx.step('submit_and_verify'):
+            ctx.click('SUBMIT_ELEMENT_ID')
+            ctx.assert_visible('RESULT_ELEMENT_ID')
+            if ctx.read_text('RESULT_ELEMENT_ID') != 'Accepted':
+                raise BusinessRejection()
+
+    def teardown(self, ctx):
+        pass

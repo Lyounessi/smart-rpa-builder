@@ -1,6 +1,7 @@
 from contextlib import contextmanager
+import re
 
-from .contracts import ExecutionCancelled, Progress
+from .contracts import ExecutionCancelled, Progress, RowResult, Outcome
 from .email import EmailService, UnconfiguredEmail
 
 
@@ -15,6 +16,7 @@ class RobotContext:
         self.cleaning = False
         self.active_step = None
         self.business_succeeded = False
+        self.outputs = {}
         self.email = EmailService(self, email if email is not None else UnconfiguredEmail(), email_timeout_seconds)
 
     def emit(self, kind, **data):
@@ -27,7 +29,8 @@ class RobotContext:
         if self.row is None or self.cleaning:
             raise ValueError('Business completion requires an active input row.')
         if not self.business_succeeded:
-            self.emit('business_completed', step=self.active_step)
+            self.emit('business_completed', step=self.active_step,
+                result=RowResult(str(self.row), Outcome.OK, outputs=dict(self.outputs)))
             self.business_succeeded = True
 
     def checkpoint(self):
@@ -68,6 +71,22 @@ class RobotContext:
 
     def read_text(self, element_id):
         return self._action('read_text', element_id)
+
+    def extract_text(self, element_id, output_key):
+        """Read captured text into the current row's named results, without changing inputs."""
+        if self.row is None or self.cleaning or self.business_succeeded:
+            raise ValueError('Extraction requires an active row before business completion.')
+        if not isinstance(output_key, str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,63}', output_key):
+            raise ValueError('Invalid output name.')
+        if output_key in self.outputs:
+            raise ValueError('An output may only be extracted once per row.')
+        value = self.read_text(element_id)
+        if not isinstance(value, str) or len(value.encode('utf-8')) > 16384:
+            raise ValueError('Extracted text must be at most 16 KB.')
+        if sum(len(item.encode('utf-8')) for item in self.outputs.values()) + len(value.encode('utf-8')) > 65536:
+            raise ValueError('Row outputs exceed 64 KB.')
+        self.outputs[output_key] = value
+        return value
 
     def assert_visible(self, element_id):
         return self._action('assert_visible', element_id)

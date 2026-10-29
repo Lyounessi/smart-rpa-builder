@@ -34,6 +34,7 @@ class BaseRobot:
                 row = remaining[0]
                 ctx.row, ctx.failed_step = row.reference, None
                 ctx.business_succeeded = False
+                ctx.outputs = {}
                 ctx.emit('row_started')
                 try:
                     self.process(ctx, row.values)
@@ -48,6 +49,7 @@ class BaseRobot:
                     if options.stop_on_error:
                         result.primary_error = error
                 outcome.business_completed = ctx.business_succeeded or outcome.status == Outcome.OK
+                outcome.outputs = dict(ctx.outputs)
                 if ctx.business_succeeded and outcome.status != Outcome.OK:
                     outcome.message = 'Business operation completed; a subsequent step failed.'
                 ctx.emit('row_finished', result=outcome)

@@ -3,7 +3,7 @@ from django.db.models import Count, OuterRef, Q, Subquery, Value
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from projects.models import DatasetRow
 from .models import Robot, RobotBuild, RobotRun, RowAttempt
@@ -52,6 +52,7 @@ def robot_list(request):
     robots = Robot.objects.select_related('project').annotate(
         latest_version=Subquery(latest_build.values('version')[:1]),
         build_status=Subquery(latest_build.values('status')[:1]),
+        build_is_draft=Subquery(latest_build.values('is_draft')[:1]),
         build_origin=Subquery(latest_build.values('origin')[:1]),
         last_state=Subquery(latest_run.values('state')[:1]), last_run_id=Subquery(latest_run.values('pk')[:1]),
         last_run_at=Subquery(latest_run.values('created_at')[:1]),
@@ -97,5 +98,30 @@ def robot_detail(request, robot_id):
 
 @require_GET
 def build_detail(request, robot_id, version):
+    from .forms import DraftTestForm
     build = get_object_or_404(RobotBuild.objects.select_related('robot__project'), robot_id=robot_id, version=version)
-    return render(request, 'execution/build_detail.html', {'build':build})
+    return render(request, 'execution/build_detail.html', {'build':build,
+        'test_runs':build.runs.filter(is_test=True).order_by('-created_at')[:10],
+        'test_form':DraftTestForm(build=build) if build.is_draft else None})
+
+
+@require_POST
+def test_build(request, robot_id, version):
+    from django.db import IntegrityError
+    from django.shortcuts import redirect
+    from .forms import DraftTestForm
+    from .draft_tests import queue_test, launch_test
+    build = get_object_or_404(RobotBuild.objects.select_related('robot__project','specification_snapshot'),robot_id=robot_id,version=version)
+    form = DraftTestForm(request.POST,build=build)
+    if form.is_valid():
+        try:
+            run = queue_test(build,form.cleaned_data['dataset'],
+                reviewed_digest=form.cleaned_data['reviewed_digest'],acknowledged=form.cleaned_data['acknowledged'],
+                row_limit=form.cleaned_data['row_limit'],record_screen=form.cleaned_data['record_screen'])
+        except (ValueError,KeyError,IntegrityError):
+            form.add_error(None,'Cannot start this test. Check that the source and project are current, the dataset has valid pending rows, and no other robot run is active.')
+        else:
+            launch_test(run)
+            return redirect('run-detail',run_id=run.pk)
+    return render(request,'execution/build_detail.html',{'build':build,'test_form':form,
+        'test_runs':build.runs.filter(is_test=True).order_by('-created_at')[:10]})
