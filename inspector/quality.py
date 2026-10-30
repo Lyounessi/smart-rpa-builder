@@ -11,6 +11,8 @@ def assess_id(value):
         or re.search(r'\d{4,}', value)
         or re.search(r'(?:react|radix|ember|mui|headlessui)[-_:]?\d', value, re.I)
         or re.search(r'(?:^|[-_])[0-9a-f]{8,}(?:$|[-_])', value, re.I)
+        or (re.fullmatch(r'[A-Za-z0-9]{4,10}', value) and re.search(r'[a-z]', value)
+            and re.search(r'[A-Z]', value) and re.search(r'\d', value))
     )
     return {
         'assessment': 'suspected_generated' if generated else 'unverified',
@@ -19,7 +21,15 @@ def assess_id(value):
 
 
 def fingerprint(metadata):
-    return {key: metadata.get(key, '') for key in ('tag', 'role', 'name', 'label')}
+    result={key: metadata.get(key, '') for key in ('tag', 'role', 'name', 'label')}
+    if metadata.get('nearby_label'):
+        result['nearby_label']=metadata['nearby_label']
+    semantic={key:metadata.get('attributes',{}).get(key) for key in
+        ['data-testid','data-qa','data-cy','data-test','data-automation-id','formcontrolname','ng-reflect-name']
+        if metadata.get('attributes',{}).get(key)}
+    if semantic:
+        result['semantic_attributes']=semantic
+    return result
 
 
 def initial_quality(metadata, locator, document_id, session_id):

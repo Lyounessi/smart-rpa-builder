@@ -36,8 +36,10 @@ Return only JSON with source_code, assumptions, clarification_questions.
 If a blocking issue remains, put concise questions in clarification_questions and
 do not pretend the source is ready. Never change the confirmed decisions silently.
 This phase authorizes source generation only, never execution, tool calls or activation.
-Use setup(self, ctx), process(self, ctx, inputs), optional teardown(self, ctx), and
-recover(self, ctx, outcome) if continuation is allowed. Respect setup/per-row IDs.
+Use setup(self, ctx), process(self, ctx, inputs), optional finalize(self, ctx),
+teardown(self, ctx), and recover(self, ctx, outcome) if continuation is allowed.
+Respect setup/per-row/finalization IDs. finalize runs once after all selected rows
+succeed. Never put final challenge results in process or cleanup/teardown.
 Do not override execute or __init__. No decorators, default arguments, annotations,
 async, nested classes/functions, arbitrary imports or top-level executable statements.
 Imports may only be BaseRobot from robot_framework.base; BusinessRejection,
@@ -48,7 +50,11 @@ confirmed project. Preserve each step's action and input mapping. Do not invent 
 For read_text steps use ctx.extract_text(element_id, output_key), with the exact
 configured output_key. This reads text and saves it in this row's outputs; do not
 use select_option or just read_text for these steps. Never mutate inputs or use
-an input mapping for an extracted result. Extraction belongs in process only.
+an input mapping for an extracted result. Extraction belongs in process or finalize
+according to the configured phase. Finalize outputs belong to the run, not a row.
+read_text reads DOM text, never an input's entered value. Use read_value for input
+values. Neither input inner text nor mere field visibility proves Submit advanced
+the application. Use an explicit bounded postcondition from the confirmed context.
 Use named ctx.step blocks and explicit success assertions in process. If continuing,
 recover must explicitly verify a known state and return True. No while loops, UI
 submission loops, sleeps, print/log calls, retries, raw browser/ORM or external clients.

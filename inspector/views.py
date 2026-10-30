@@ -24,7 +24,7 @@ def workspace(request, step, error='', form=None):
         'project':step.project, 'step':step, 'session':session, 'draft':draft,
         'other_session':InspectionSession.objects.filter(active_slot='local').exclude(step=step).first(),
         'references':references, 'error':error,
-        'review_form':form or CaptureReviewForm(initial={'name':draft.metadata.get('name') or draft.metadata.get('tag', '')} if draft else {}),
+        'review_form':form or CaptureReviewForm(initial={'name':draft.metadata.get('name') or draft.metadata.get('nearby_label') or draft.metadata.get('tag', '')} if draft else {}),
         'can_select':session and session.active_slot and session.status == 'browsing',
     })
 

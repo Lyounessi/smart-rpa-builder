@@ -57,7 +57,7 @@ class Phase2Tests(TestCase):
         DatasetRow.objects.create(dataset=dataset, row_number=2, values={'name':'PRIVATE_DATASET_VALUE'})
         first, second = create_snapshot(self.project), create_snapshot(self.project)
         self.assertEqual(first.specification_hash, second.specification_hash)
-        self.assertEqual(first.contract_version, '1.1')
+        self.assertEqual(first.contract_version, '1.2')
         instructions, input = request_context(first)
         self.assertIn('BaseRobot', instructions)
         self.assertIn('ExampleRobot', instructions)
@@ -126,6 +126,29 @@ class Phase2Tests(TestCase):
         saved.write_bytes(b'changed')
         with self.assertRaises(MuseError):
             request_context(snapshot)
+
+    def test_fifty_distinct_screenshots_supported_and_next_rejected(self):
+        self.attach(color=(0, 0, 0))
+        for index in range(1, 50):
+            element = CapturedElement.objects.create(window=self.window, name=f'Button {index}',
+                locator={'strategy':'text', 'value':f'Button {index}'})
+            self.attach(element, name=f'capture-{index}.png', color=(index, 0, 0))
+            step = WorkflowStep.objects.create(project=self.project, window=self.window,
+                position=index + 1, name=f'Click {index}', instruction='Click', action='click')
+            StepElementReference.objects.create(step=step, element=element)
+        snapshot = create_snapshot(self.project)
+        self.assertEqual(len(snapshot.images), 50)
+        _, messages = request_context(snapshot)
+        self.assertEqual(sum(block['type'] == 'input_image' for block in messages[0]['content']), 50)
+        element = CapturedElement.objects.create(window=self.window, name='Extra',
+            locator={'strategy':'text', 'value':'Extra'})
+        self.attach(element, name='extra.png', color=(50, 0, 0))
+        step = WorkflowStep.objects.create(project=self.project, window=self.window,
+            position=51, name='Extra', instruction='Click', action='click')
+        StepElementReference.objects.create(step=step, element=element)
+        with self.assertRaises(MuseError) as caught:
+            prepare_context(self.project)
+        self.assertEqual(caught.exception.code, 'context_limit')
 
     def test_connection_is_budgeted_and_usage_cost_is_persisted(self):
         client = Mock()

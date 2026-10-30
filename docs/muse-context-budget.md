@@ -21,7 +21,7 @@ Referenced highlighted viewports are preferred, with the saved element crop as f
 Limits fail explicitly rather than silently omitting workflow data:
 
 - 64 KB UTF-8 context text, including instructions, example and screenshot labels.
-- Eight distinct images, at most 2 MB each and 8 MB combined.
+- Up to 50 distinct images, at most 2 MB each and 32 MB combined. Identical images are sent once. More images can increase API usage; the existing spending controls still apply.
 - Four million pixels per source image; PNG and JPEG only.
 - Image paths must stay within configured local media storage. Missing, changed, invalid or oversized captures require correction/recapture.
 

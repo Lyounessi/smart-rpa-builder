@@ -1,0 +1,1 @@
+MAX_TEST_ROWS = 50

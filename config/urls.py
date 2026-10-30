@@ -8,6 +8,7 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('robots/<int:robot_id>/run/',robot_views.run_robot,name='robot-run'),
     path('projects/<int:project_id>/inputs/<int:input_id>/', input_views.input_detail, name='input-detail'),
     path('projects/<int:project_id>/inputs/<int:input_id>/delete/', input_views.input_delete, name='input-delete'),
     path('projects/<int:project_id>/datasets/<int:dataset_id>/rows/<int:row_id>/', input_views.dataset_row_detail, name='dataset-row-detail'),
@@ -21,6 +22,7 @@ urlpatterns = [
     path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
     path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),
     path('projects/<int:project_id>/build/start/', build_views.start, name='muse-build-start'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/refresh/', build_views.refresh, name='muse-specification-refresh'),
     path('projects/<int:project_id>/build/<uuid:session_id>/reply/', build_views.reply, name='muse-build-reply'),
     path('projects/<int:project_id>/build/<uuid:session_id>/messages/<int:message_id>/review/', build_views.proposals, name='muse-proposal-review'),
     path('projects/<int:project_id>/build/<uuid:session_id>/specification/', build_views.specification, name='muse-specification-edit'),

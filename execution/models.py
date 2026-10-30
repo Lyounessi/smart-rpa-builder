@@ -38,6 +38,7 @@ class RobotBuild(Timestamped):
 
 
 class RobotRun(Timestamped):
+    outputs = models.JSONField(default=dict, blank=True)
     is_test = models.BooleanField(default=False)
     test_options = models.JSONField(default=dict)
     reviewed_source_digest = models.CharField(max_length=64, blank=True)
@@ -82,6 +83,7 @@ class ProgressEvent(models.Model):
     kind = models.CharField(max_length=40)
     row_reference = models.CharField(max_length=40, blank=True)
     step = models.CharField(max_length=200, blank=True)
+    diagnostic = models.JSONField(default=dict, blank=True)
 
 
 class ActionRecord(Timestamped):

@@ -3,8 +3,9 @@ from collections import Counter
 from copy import deepcopy
 from datetime import timedelta
 from threading import Event, Thread
+import time
 
-from django.db import close_old_connections, transaction
+from django.db import close_old_connections, transaction, OperationalError
 from django.db.models import F
 from django.utils import timezone
 
@@ -62,12 +63,13 @@ class DjangoQueue:
     def rows(self):
         rows = self.run.dataset.rows.filter(processing_status='pending', errors=[],deleted_at__isnull=True)
         if self.run.is_test:
-            rows = rows[:self.run.test_options['row_limit']]
+            limit=self.run.test_options['row_limit']
+            rows = rows[:min(limit,self.run.test_options.get('planned_rows',limit))]
         selected = [InputRow(str(row.pk), row.values) for row in rows]
         self.selected_rows = {item.reference:item for item in selected}
         return selected
 
-    def emit(self, kind, row=None, step=None, result=None, summary=None, action_status=None):
+    def emit(self, kind, row=None, step=None, result=None, summary=None, action_status=None, diagnostic=None):
         with transaction.atomic():
             # Serialize queue transitions against manual edits and heartbeats.
             # SQLite cannot safely upgrade an earlier read snapshot to a writer.
@@ -124,10 +126,11 @@ class DjangoQueue:
                 current.state, current.message, current.active_slot = summary.state, summary.message, None
                 current.counts = dict(Counter(item.status for item in summary.rows))
                 current.cleanup_errors, current.artifacts = summary.cleanup_errors, summary.artifacts
+                current.outputs = summary.outputs
                 current.unprocessed = summary.unprocessed
                 current.finished_at = timezone.now()
                 current.save()
-            ProgressEvent.objects.create(run=current, kind=kind, row_reference=row or '', step=step or '')
+            ProgressEvent.objects.create(run=current, kind=kind, row_reference=row or '', step=step or '', diagnostic=diagnostic or {})
 
 
 class LeaseCancellation:
@@ -139,10 +142,18 @@ class LeaseCancellation:
 
     def _heartbeat(self):
         close_old_connections()
+        last_success = time.monotonic()
         try:
             while not self.stop.wait(5):
                 try:
                     if RobotRun.objects.filter(pk=self.run_id, active_slot='local').update(heartbeat=timezone.now()) != 1:
+                        self.lost.set()
+                        return
+                    last_success = time.monotonic()
+                except OperationalError:
+                    # Short SQLite writer contention is not proof the lease was lost.
+                    # Cancellation still verifies ownership before every action.
+                    if time.monotonic() - last_success >= LEASE_SECONDS - 5:
                         self.lost.set()
                         return
                 except Exception:

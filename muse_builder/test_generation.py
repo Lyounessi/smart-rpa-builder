@@ -60,6 +60,22 @@ class ROBOT_SUPPLIER_TEST(BaseRobot):
     def validate(self, source):
         return validate_source(source, robot_name='ROBOT_SUPPLIER_TEST', specification=self.session.confirmed_specification)
 
+    def test_input_inner_text_is_rejected_but_input_value_supported(self):
+        bad = self.source + f'        ctx.read_text("{self.element.pk}")\n'
+        self.assertTrue(any('input value' in error for error in self.validate(bad)))
+        self.assertEqual(self.validate(bad.replace('ctx.read_text','ctx.read_value')),[])
+
+    def test_refresh_preserves_old_confirmation_without_api_and_requires_new_confirmation(self):
+        from .conversation import refresh_specification
+        old_hash = self.session.confirmed_hash
+        current = refresh_specification(self.session)
+        self.assertIsNone(current.confirmed_at)
+        self.assertFalse(current.manual_reviewed)
+        self.assertEqual(current.decisions['finalization_step_ids'],[])
+        self.assertFalse(current.operations.exists())
+        self.session.refresh_from_db()
+        self.assertEqual(self.session.confirmed_hash,old_hash)
+
     def test_valid_source_saved_as_new_draft_without_execution_and_get_is_free(self):
         self.assertEqual(self.validate(self.source), [])
         for version in (1,2):

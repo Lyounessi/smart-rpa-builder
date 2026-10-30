@@ -12,11 +12,13 @@ from .client import MetaConfiguration, MuseError
 from .budget import SpendingPolicy
 from .conversation import (MAX_ROUNDS, confirm_specification, launch, local_issues, queue_review,
                            review_proposals, revision, save_decisions, start_session)
+from .conversation import refresh_specification
 from .context import require_current
 from .forms import ReplyForm, SpecificationForm, decision_form_data
 from .models import BuildSession, MuseBudget
 
-FIELD_LABELS = {'setup_step_ids':'Setup steps', 'per_row_step_ids':'Per-row steps', 'stop_on_nok':'Business rejection policy',
+FIELD_LABELS = {'setup_step_ids':'Setup steps', 'per_row_step_ids':'Per-row steps', 'finalization_step_ids':'Final checks', 'stop_on_nok':'Business rejection policy',
+    'unsupported_request_resolution':'Resolution of capability warnings',
     'stop_on_error':'Technical error policy','success_criteria':'Success criteria','rejection_handling':'Known rejection handling',
     'recovery_plan':'Recovery plan','automation_goal':'Goal','global_rules':'Global rules','brief_success_criteria':'Brief success criteria',
     'step_instruction':'Step instruction','step_input_mapping':'Input mapping','step_target':'Captured target'}
@@ -97,6 +99,17 @@ def start(request, project_id):
     except MuseError as error:
         return workspace(request, project, project.build_sessions.first(), error=error.message)
     return back(project, session)
+
+
+@require_POST
+def refresh(request, project_id, session_id):
+    project = get_object_or_404(Project, pk=project_id)
+    session = get_session(project, session_id)
+    try:
+        current = refresh_specification(session)
+    except MuseError as error:
+        return workspace(request,project,session,error=error.message)
+    return back(project,current)
 
 
 @require_POST

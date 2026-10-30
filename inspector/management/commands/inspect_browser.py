@@ -14,7 +14,8 @@ from django.utils import timezone
 from inspector.locators import resolve, safe_url, validate
 from inspector.models import CapturedElement, InspectionCommand, InspectionSession
 from inspector.services import finish_session, persist_draft
-from inspector.quality import assess_id, initial_quality, record_observation
+from inspector.quality import initial_quality, record_observation
+from inspector.candidates import candidates
 
 
 @sync_to_async
@@ -62,28 +63,27 @@ def server_alive(url, instance):
         return False
 
 
+async def verified_locators(page, metadata):
+    from playwright.async_api import Error as PlaywrightError
+    verified = []
+    for definition in candidates(metadata):
+        try:
+            target = resolve(page, definition)
+            if await target.count() == 1 and await target.is_visible() and await target.evaluate('(el) => el === window.__smartRpa.selected()'):
+                verified.append(definition)
+                if len(verified) >= 6:
+                    break
+        except PlaywrightError:
+            if page.is_closed():
+                raise
+    return verified
+
+
 async def choose_locator(page, metadata):
-    attrs = metadata['attributes']
-    candidates = []
-    if attrs.get('data-testid'):
-        candidates.append({'strategy':'test_id', 'value':attrs['data-testid']})
-    if metadata['role'] and metadata['name']:
-        candidates.append({'strategy':'role', 'role':metadata['role'], 'name':metadata['name']})
-    if metadata['label']:
-        candidates.append({'strategy':'label', 'value':metadata['label']})
-    for attribute in ['id', 'name', 'placeholder', 'aria-label']:
-        if attribute == 'id' and assess_id(attrs.get('id'))['assessment'] == 'suspected_generated':
-            continue
-        if attrs.get(attribute):
-            # JSON string escaping is also valid for CSS quoted attribute strings.
-            candidates.append({'strategy':'css', 'value':f"{metadata['tag']}[{attribute}={json.dumps(attrs[attribute])}]"})
-    if metadata['name'] and metadata['tag'] in {'p', 'span', 'label'}:
-        candidates.append({'strategy':'text', 'value':metadata['name']})
-    for definition in candidates:
-        target = resolve(page, definition)
-        if await target.count() == 1 and await target.evaluate('(el) => el === window.__smartRpa.selected()'):
-            return definition
-    raise ValueError('No unique stable selector found. Select a labelled control or an element with a stable ID.')
+    verified = await verified_locators(page, metadata)
+    if verified:
+        return verified[0]
+    raise ValueError('No unique visible selector found using labels, semantic attributes, IDs, classes or parent context. Select the actual control or refine the page context. OCR is not implemented.')
 
 
 async def capture(page, session_id, step_id=None):
@@ -91,7 +91,10 @@ async def capture(page, session_id, step_id=None):
     metadata = await page.evaluate('() => window.__smartRpa.metadata()')
     if metadata.get('unsupported'):
         raise ValueError('Frames, canvas and embedded controls are unsupported in this MVP. OCR or visual targeting may be added later.')
-    definition = await choose_locator(page, metadata)
+    verified = await verified_locators(page, metadata)
+    if not verified:
+        raise ValueError('No unique visible selector found. Select the actual control or refine the page context. OCR is not implemented.')
+    definition = verified[0]
     target = resolve(page, definition)
     result = await validate(page, definition)
     if result['status'] != 'unique':
@@ -117,6 +120,8 @@ async def capture(page, session_id, step_id=None):
     image.crop((x, y, right, bottom)).save(buffer, format='PNG')
     coordinates = {'bounding_box':bounds, 'viewport':{'width':image.width, 'height':image.height}, 'unit':'CSS pixels', 'origin':'viewport'}
     quality = initial_quality(metadata, definition, await page.evaluate('() => window.__smartRpa.documentId'), session_id)
+    quality['verified_candidates'] = verified
+    quality['selection_reason'] = 'First unique visible match in priority order: automation attributes, accessible identity, semantic attributes, ID, label/parent context, classes. Alternatives are capture evidence, not automatic runtime retries.'
     await sync_to_async(persist_draft)(session_id, metadata, definition, result, safe_url(page.url), coordinates, viewport, buffer.getvalue(), step_id=step_id, selector_quality=quality)
 
 

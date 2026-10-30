@@ -11,7 +11,7 @@ from django.core.management import call_command
 from .demo import prepare_demo, GreetingHandler
 from .draft_tests import queue_test, execute_test
 from .models import RobotRun
-from projects.models import Project, Dataset
+from projects.models import Project, Dataset, DatasetRow
 
 
 class GreetingBrowser:
@@ -56,7 +56,7 @@ class DraftTestTests(TestCase):
             queue_test(self.build,self.dataset,reviewed_digest=self.build.source_digest,acknowledged=False)
         with self.assertRaises(ValueError):
             queue_test(self.build,self.dataset,reviewed_digest='wrong',acknowledged=True)
-        for limit in (0,6,True):
+        for limit in (0,51,True):
             with self.assertRaises(ValueError): self.queue(row_limit=limit)
         self.project.automation_goal='Changed'
         self.project.save()
@@ -80,6 +80,19 @@ class DraftTestTests(TestCase):
         self.assertIsNotNone(run.source_reviewed_at)
         self.assertEqual(run.reviewed_source_digest,self.build.source_digest)
         self.assertIsNone(run.active_slot)
+
+    def test_fifty_inputs_are_processed_and_the_next_one_stays_pending(self):
+        DatasetRow.objects.bulk_create([DatasetRow(dataset=self.dataset,row_number=index,values={'name':f'Person {index}'})
+            for index in range(4,53)])
+        self.dataset.row_count=51
+        self.dataset.save(update_fields=['row_count'])
+        run=self.queue(row_limit=50)
+        self.assertEqual(run.test_options['planned_rows'],50)
+        execute_test(run.pk,browser_factory=GreetingBrowser)
+        run.refresh_from_db()
+        self.assertEqual(run.counts,{'OK':50})
+        self.assertEqual(run.attempts.count(),50)
+        self.assertEqual(self.dataset.rows.filter(processing_status='pending').count(),1)
 
     def test_source_changed_or_cancelled_before_worker_never_opens_browser(self):
         run=self.queue()

@@ -1,5 +1,6 @@
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import time
 
 from inspector.locators import resolve
 from robot_framework.contracts import TechnicalError
@@ -71,6 +72,31 @@ class _BrowserSession:
         self._check()
         return text
 
+    def read_value(self, element_id):
+        value = self._target(element_id).input_value()
+        self._check()
+        return value
+
+    def wait_for_progress(self, element_id, previous_text, completion_element_id):
+        from playwright.sync_api import TimeoutError as PlaywrightTimeout
+        deadline = time.monotonic() + self.timeout / 1000
+        status, complete = self._target(element_id), self._target(completion_element_id)
+        while time.monotonic() < deadline:
+            self._check()
+            if complete.count() > 1 or status.count() > 1:
+                raise TechnicalError('Progress target is ambiguous.')
+            if complete.count() == 1 and complete.is_visible():
+                return
+            if status.count() == 1 and status.is_visible():
+                try:
+                    value = status.inner_text(timeout=max(1,min(100,int((deadline-time.monotonic())*1000))))
+                    if value.strip() and value != previous_text:
+                        return
+                except PlaywrightTimeout:
+                    pass
+            time.sleep(min(.05,max(0,deadline-time.monotonic())))
+        raise PlaywrightTimeout('Progress condition did not change within the action timeout.')
+
     def assert_visible(self, element_id):
         self._target(element_id).wait_for(state='visible', timeout=self.timeout)
         self._check()
@@ -95,7 +121,7 @@ class PlaywrightBrowser:
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix='robot-browser')
 
     def __getattr__(self, method):
-        if method not in {'open', 'navigate', 'fill', 'click', 'select_option', 'read_text', 'assert_visible'}:
+        if method not in {'open', 'navigate', 'fill', 'click', 'select_option', 'read_text', 'read_value', 'wait_for_progress', 'assert_visible'}:
             raise AttributeError(method)
         def call(*args):
             return self.executor.submit(getattr(self.session, method), *args).result()

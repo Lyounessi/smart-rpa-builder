@@ -126,6 +126,44 @@ class ROBOT_WEATHER(BaseRobot):
                     source.replace('ctx.extract_text','ctx.read_text')]:
             self.assertTrue(validate_source(bad,robot_name='ROBOT_WEATHER',specification=spec))
 
+    def test_run_final_output_persists_without_changing_row_outputs(self):
+        run = create_run(self.dataset,'ROBOT_WEATHER')
+        queue = DjangoQueue(run)
+        browser,cancel = Mock(),Mock()
+        cancel.requested.return_value=False
+        browser.read_text.return_value='Congratulations'
+        element = str(self.element.pk)
+        class Robot(BaseRobot):
+            def process(self, ctx, inputs):
+                pass
+            def finalize(self, ctx):
+                ctx.extract_text(element,'final_result')
+        result = Robot().execute(RobotContext(browser,None,queue,cancel),queue.rows(),RunOptions())
+        queue.emit('run_completed',summary=result)
+        run.refresh_from_db()
+        self.assertEqual(run.outputs,{'final_result':'Congratulations'})
+        self.assertEqual(list(run.attempts.values_list('outputs',flat=True)),[{},{}])
+        self.assertContains(self.client.get(reverse('run-detail',args=[run.pk])),'Congratulations')
+
+    def test_final_extraction_must_stay_in_its_confirmed_phase(self):
+        spec = {'project_context':assemble_generation_context(self.project,framework_contract='test')['project_context'],
+            'decisions':{'setup_step_ids':[],'per_row_step_ids':[],'finalization_step_ids':[self.step.pk],
+                'stop_on_nok':True,'stop_on_error':True}}
+        source = f'''from robot_framework.base import BaseRobot
+class ROBOT_WEATHER(BaseRobot):
+    def setup(self, ctx):
+        pass
+    def process(self, ctx, inputs):
+        with ctx.step("row"):
+            ctx.assert_visible("{self.element.pk}")
+    def finalize(self, ctx):
+        with ctx.step("final"):
+            ctx.extract_text("{self.element.pk}", "weather")
+'''
+        self.assertEqual(validate_source(source,robot_name='ROBOT_WEATHER',specification=spec),[])
+        bad = source.replace('    def finalize(self, ctx):\n','')
+        self.assertTrue(validate_source(bad,robot_name='ROBOT_WEATHER',specification=spec))
+
 
 class ExtractionBoundaryTests(SimpleTestCase):
     def test_active_row_bounds_duplicate_names_and_cancellation(self):

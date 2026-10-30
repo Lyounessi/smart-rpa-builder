@@ -18,7 +18,7 @@ with ctx.step('get_weather'):
 
 `extract_text` uses the existing browser adapter's bounded `read_text` operation, records a plain string in the current row's outputs, and returns that string for explicit business checks. A regular `ctx.read_text` remains available for checks but does not save an output. This extension does not add fixed sleeps or keyboard actions.
 
-Extraction requires an active row, before business completion, and is disallowed during setup/teardown. The same output name can be extracted only once per row. Each value is limited to 16 KB of UTF-8 and total values to 64 KB per row. Cancellation is checked through the existing action boundary. These limits do not replace the browser action timeout.
+Extraction requires an active row before business completion, or the explicit `finalize` phase. It is disallowed during setup/teardown. In `finalize`, values are run outputs rather than row outputs. The same output name can be extracted only once per row or final phase. Each value is limited to 16 KB of UTF-8 and total values to 64 KB per row/final phase. Cancellation is checked through the existing action boundary. These limits do not replace the browser action timeout.
 
 ## Persistence and results
 
@@ -30,7 +30,7 @@ The run progress page and Robots → selected run results show saved outputs as 
 
 ## Muse
 
-Context includes each step's `output_key`. Framework contract 1.1 documents `extract_text`. Clarification accepts read steps, requires them in per-row processing, and retains explicit confirmation. Static checks require the configured target and output key and reject using dropdown selection or a plain read as a replacement for saved extraction. Checks do not prove the business success condition.
+Context includes each step's `output_key`. Framework contract 1.2 documents per-row and final extraction. Assign read steps to per-row processing or final checks and explicitly confirm. Static checks require the configured phase, target and output key and reject using dropdown selection or a plain read as a replacement for saved extraction. Checks do not prove the business success condition.
 
 Contract changes invalidate old source snapshots. Start a fresh review and confirm the updated specification before generating a draft. Generation still never executes or activates source. This change does not introduce direct database writes into generated robots.
 
