@@ -34,6 +34,13 @@ class CandidateTests(SimpleTestCase):
         self.assertEqual(quoted('a"b'),'"a\\"b"')
         self.assertEqual(quoted('a\nb'),'"a\\a b"')
 
+    def test_label_context_precedes_unique_classes_and_random_ids(self):
+        metadata={'tag':'input','attributes':{'id':'Ab3xY','name':'Ab3xY'},
+            'nearby_label':'First Name','classes':['unique-today'], 'ancestors':[]}
+        result=candidates(metadata)
+        self.assertEqual(result[0]['strategy'],'xpath')
+        self.assertNotIn('Ab3xY',str(result))
+
 
 @skipUnless(os.environ.get('RUN_BROWSER_TESTS')=='1','Opt-in inspector selector fallback checks')
 class SelectorFallbackBrowserTests(SimpleTestCase):
@@ -94,7 +101,8 @@ class SelectorFallbackBrowserTests(SimpleTestCase):
                 await page.evaluate('() => window.__smartRpa.select()')
                 await page.locator('input').first.click()
                 definition=await choose_locator(page,await page.evaluate('() => window.__smartRpa.metadata()'))
-                self.assertIn(':has(',definition['value'])
+                self.assertEqual(definition['strategy'],'xpath')
+                self.assertIn('First Name',definition['value'])
                 await load('<input class="field"><input class="field">')
                 await page.evaluate('() => window.__smartRpa.select()')
                 await page.locator('input').first.click()

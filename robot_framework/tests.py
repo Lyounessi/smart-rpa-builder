@@ -77,6 +77,51 @@ class FrameworkTests(unittest.TestCase):
         self.assertEqual(result.artifacts, ['fictional.webm'])
         self.assertEqual(self.events.items[-1][0], 'run_completed')
 
+    def test_final_checks_run_once_after_rows_before_cleanup(self):
+        test = self
+        class Robot(BaseRobot):
+            def process(self, ctx, inputs):
+                test.log.append('row')
+            def finalize(self, ctx):
+                test.assertIsNone(ctx.row)
+                test.log.append('final')
+                ctx.outputs['result'] = 'Congratulations'
+            def teardown(self, ctx):
+                test.log.append('cleanup')
+        result = self.execute(Robot)
+        self.assertEqual(self.log,['open','row','row','final','cleanup','close'])
+        self.assertEqual(result.outputs,{'result':'Congratulations'})
+        self.assertTrue(all(not row.outputs for row in result.rows))
+
+    def test_final_failure_preserves_successful_rows_and_cleanup(self):
+        test = self
+        class Robot(BaseRobot):
+            def process(self, ctx, inputs):
+                pass
+            def finalize(self, ctx):
+                raise RuntimeError('private')
+            def teardown(self, ctx):
+                test.log.append('cleanup')
+        result = self.execute(Robot)
+        self.assertEqual(result.state,'failed')
+        self.assertEqual([row.status for row in result.rows],['OK','OK'])
+        self.assertEqual(result.unprocessed,[])
+        self.assertIn('cleanup',self.log)
+
+    def test_final_checks_skipped_after_rejection_error_cancel_or_no_rows(self):
+        for error in [BusinessRejection, RuntimeError, ExecutionCancelled]:
+            parent = self.robot(failure=error)
+            class Robot(parent):
+                def finalize(self, ctx):
+                    raise AssertionError('must not finalize')
+            result = self.execute(Robot,stop_on_nok=True)
+            self.assertNotIsInstance(result.primary_error,AssertionError)
+            self.assertNotIn('finalization_started',[kind for kind,data in self.events.items])
+        registry,events = Registry(),Events()
+        registry.register('empty',Robot)
+        Runner(registry,FakeBrowser([]),None,events,Cancellation()).run('empty',[],RunOptions())
+        self.assertNotIn('finalization_started',[kind for kind,data in events.items])
+
     def test_business_rejection_policies(self):
         result = self.execute(self.robot(failure=BusinessRejection), stop_on_nok=True)
         self.assertEqual(result.state, 'completed')

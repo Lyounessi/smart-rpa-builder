@@ -11,6 +11,8 @@ def assess_id(value):
         or re.search(r'\d{4,}', value)
         or re.search(r'(?:react|radix|ember|mui|headlessui)[-_:]?\d', value, re.I)
         or re.search(r'(?:^|[-_])[0-9a-f]{8,}(?:$|[-_])', value, re.I)
+        or (re.fullmatch(r'[A-Za-z0-9]{4,10}', value) and re.search(r'[a-z]', value)
+            and re.search(r'[A-Z]', value) and re.search(r'\d', value))
     )
     return {
         'assessment': 'suspected_generated' if generated else 'unverified',

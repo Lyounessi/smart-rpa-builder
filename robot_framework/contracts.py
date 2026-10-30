@@ -58,6 +58,7 @@ class RunResult:
     artifacts: list[str] = field(default_factory=list)
     unprocessed: list[str] = field(default_factory=list)
     primary_error: BaseException | None = field(default=None, repr=False)
+    outputs: dict[str, str] = field(default_factory=dict)
 
 
 class BusinessRejection(Exception):
@@ -80,3 +81,4 @@ class Progress:
     result: RowResult | None = None
     summary: RunResult | None = None
     action_status: str | None = None
+    diagnostic: dict | None = None

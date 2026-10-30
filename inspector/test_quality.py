@@ -10,7 +10,7 @@ class SelectorQualityTests(SimpleTestCase):
 
     def test_id_patterns_are_clues_not_proof(self):
         self.assertEqual(assess_id('supplier-name')['assessment'], 'unverified')
-        for value in [':r4:', 'input-4829', 'customer-12345-name', 'radix-12', 'field-a83f6b12']:
+        for value in [':r4:', 'input-4829', 'customer-12345-name', 'radix-12', 'field-a83f6b12', 'Ab3xY']:
             self.assertEqual(assess_id(value)['assessment'], 'suspected_generated')
         self.assertEqual(assess_id('')['assessment'], 'absent')
 

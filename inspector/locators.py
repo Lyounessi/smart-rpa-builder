@@ -30,6 +30,8 @@ def resolve(page, definition):
         return page.get_by_text(definition["value"], exact=True)
     if strategy == "css":
         return page.locator(definition["value"])
+    if strategy == "xpath":
+        return page.locator('xpath=' + definition['value'])
     raise ValueError("Unsupported locator strategy")
 
 

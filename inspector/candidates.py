@@ -16,6 +16,14 @@ def stable_classes(tokens):
         r'^(?:ng-|is-|has-|css-|sc-)|^(?:active|focus|focused|hover|selected|disabled)$|[0-9a-f]{8,}|\d{4,}',value,re.I)][:6]
 
 
+def xpath_literal(value):
+    if "'" not in value:
+        return "'" + value + "'"
+    if '"' not in value:
+        return '"' + value + '"'
+    return 'concat(' + ', "\'", '.join("'" + part + "'" for part in value.split("'")) + ')'
+
+
 def candidates(metadata):
     tag=metadata['tag'] if re.fullmatch(r'[a-z][a-z0-9-]*',metadata['tag']) else '*'
     attrs=metadata['attributes']
@@ -30,7 +38,8 @@ def candidates(metadata):
         add({'strategy':'role','role':metadata['role'],'name':metadata['name']})
     if metadata.get('label'): add({'strategy':'label','value':metadata['label']})
     for key in SEMANTIC_ATTRIBUTES:
-        if attrs.get(key): css(attribute(tag,key,attrs[key]))
+        if attrs.get(key) and (key != 'name' or assess_id(attrs[key])['assessment'] != 'suspected_generated'):
+            css(attribute(tag,key,attrs[key]))
     if attrs.get('id') and assess_id(attrs['id'])['assessment']!='suspected_generated':
         css(attribute(tag,'id',attrs['id']))
     for key in ['placeholder','title','alt']:
@@ -38,8 +47,9 @@ def candidates(metadata):
     if metadata.get('name') and tag in {'p','span','label'}:
         add({'strategy':'text','value':metadata['name']})
     tokens=stable_classes(metadata.get('classes',[]))
-    for group in [(token,) for token in tokens]+list(combinations(tokens,2))[:6]:
-        css(tag+''.join(f'[class~={quoted(token)}]' for token in group))
+    if metadata.get('nearby_label'):
+        label=xpath_literal(metadata['nearby_label'])
+        add({'strategy':'xpath','value':f'//label[normalize-space(.)={label}]/parent::*//{tag}'})
     for ancestor in metadata.get('ancestors',[])[:3]:
         parent_tag=ancestor['tag'] if re.fullmatch(r'[a-z][a-z0-9-]*',ancestor['tag']) else '*'
         parent_attrs=ancestor.get('attributes',{})
@@ -55,4 +65,6 @@ def candidates(metadata):
             # Child attributes/classes may distinguish repeated controls in a stable container.
             css(prefix+' '+tag)
             for token in tokens[:2]: css(prefix+' '+tag+f'[class~={quoted(token)}]')
+    for group in [(token,) for token in tokens]+list(combinations(tokens,2))[:6]:
+        css(tag+''.join(f'[class~={quoted(token)}]' for token in group))
     return result

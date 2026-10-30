@@ -176,6 +176,10 @@ The first framework version runs an explicitly registered robot by name against 
 
 See [framework API, runnable local demo, commands, and limitations](docs/robot-framework.md). Start with `python manage.py prepare_robot_demo`, run `python manage.py serve_robot_fixture` in another terminal, then use the printed dataset ID with `python manage.py run_robot ROBOT_INVOICE_CHECKS --dataset <id>`. The example's fictional login secrets must be configured as described in that document.
 
+Run progress includes [technical execution logs](docs/execution-logs.md): action timings, target IDs, exception types and code locations, with a full JSONL download. Apply migrations and restart the server/workers to enable new diagnostics. Entered values and raw exception messages are excluded.
+
+[Final verification](docs/final-verification.md) runs once after all selected rows succeed, before cleanup. The specification form allocates setup, per-row and final-check steps. Update a specification locally, confirm it, then explicitly generate a new robot version; previous builds and run history stay intact.
+
 ### Step input mappings
 
 In the step editor, choose **Click**, **Fill**, or **Select option**. Fill and Select option require an **Input column** from the current project's process inputs (for example `name`). This stores a reference to the input definition, so the future runner can use that column's value from each dataset row. Click clears the input mapping. Captured targets remain optional while drafting a step.

@@ -63,16 +63,26 @@ def server_alive(url, instance):
         return False
 
 
-async def choose_locator(page, metadata):
+async def verified_locators(page, metadata):
     from playwright.async_api import Error as PlaywrightError
+    verified = []
     for definition in candidates(metadata):
         try:
             target = resolve(page, definition)
             if await target.count() == 1 and await target.is_visible() and await target.evaluate('(el) => el === window.__smartRpa.selected()'):
-                return definition
+                verified.append(definition)
+                if len(verified) >= 6:
+                    break
         except PlaywrightError:
             if page.is_closed():
                 raise
+    return verified
+
+
+async def choose_locator(page, metadata):
+    verified = await verified_locators(page, metadata)
+    if verified:
+        return verified[0]
     raise ValueError('No unique visible selector found using labels, semantic attributes, IDs, classes or parent context. Select the actual control or refine the page context. OCR is not implemented.')
 
 
@@ -81,7 +91,10 @@ async def capture(page, session_id, step_id=None):
     metadata = await page.evaluate('() => window.__smartRpa.metadata()')
     if metadata.get('unsupported'):
         raise ValueError('Frames, canvas and embedded controls are unsupported in this MVP. OCR or visual targeting may be added later.')
-    definition = await choose_locator(page, metadata)
+    verified = await verified_locators(page, metadata)
+    if not verified:
+        raise ValueError('No unique visible selector found. Select the actual control or refine the page context. OCR is not implemented.')
+    definition = verified[0]
     target = resolve(page, definition)
     result = await validate(page, definition)
     if result['status'] != 'unique':
@@ -107,6 +120,8 @@ async def capture(page, session_id, step_id=None):
     image.crop((x, y, right, bottom)).save(buffer, format='PNG')
     coordinates = {'bounding_box':bounds, 'viewport':{'width':image.width, 'height':image.height}, 'unit':'CSS pixels', 'origin':'viewport'}
     quality = initial_quality(metadata, definition, await page.evaluate('() => window.__smartRpa.documentId'), session_id)
+    quality['verified_candidates'] = verified
+    quality['selection_reason'] = 'First unique visible match in priority order: automation attributes, accessible identity, semantic attributes, ID, label/parent context, classes. Alternatives are capture evidence, not automatic runtime retries.'
     await sync_to_async(persist_draft)(session_id, metadata, definition, result, safe_url(page.url), coordinates, viewport, buffer.getvalue(), step_id=step_id, selector_quality=quality)
 
 

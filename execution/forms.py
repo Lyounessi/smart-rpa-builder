@@ -15,6 +15,8 @@ class DraftTestForm(forms.Form):
         super().__init__(*args,**kwargs)
         self.fields['dataset'].queryset = build.robot.project.datasets.filter(status='ready')
         self.initial['reviewed_digest'] = build.source_digest
+        if build.confirmed_specification.get('decisions',{}).get('finalization_step_ids'):
+            self.fields['row_limit'].help_text = 'This version has a final check after all selected rows succeed. Choose enough inputs to reach the application’s final state; a partial test may fail that final check.'
 
 
 class VersionChoice(forms.ModelChoiceField):
@@ -39,6 +41,8 @@ class RobotRunForm(DraftTestForm):
         ).filter(pending_count__gt=0)
         self.initial['build']=selected_build.pk if selected_build else None
         self.initial['reviewed_digest']=selected_build.source_digest if selected_build else ''
+        if selected_build and selected_build.confirmed_specification.get('decisions',{}).get('finalization_step_ids'):
+            self.fields['row_limit'].help_text = 'Final verification runs after all selected rows succeed. For a full challenge, select all required rows; a partial test may not reach its final screen.'
         self.fields['acknowledged'].label='I reviewed this version’s code and allow it to run locally, act on the target application and update these inputs.'
         self.order_fields(['build','dataset','row_limit','record_screen','reviewed_digest','acknowledged'])
         for key in ['build','dataset']:

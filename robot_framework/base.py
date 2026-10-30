@@ -18,6 +18,10 @@ class BaseRobot:
     def teardown(self, ctx):
         pass
 
+    def finalize(self, ctx):
+        """Verify the overall result once after all selected rows succeed."""
+        pass
+
     def execute(self, ctx, rows, options):
         result = RunResult(state=RunState.RUNNING)
         remaining = list(rows)
@@ -67,13 +71,30 @@ class BaseRobot:
                         break
                 ctx.row = None
             else:
+                if result.rows and all(item.status == Outcome.OK for item in result.rows):
+                    ctx.row = None
+                    ctx.finalizing = True
+                    ctx.outputs = {}
+                    ctx.failed_step = None
+                    ctx.checkpoint()
+                    ctx.emit('finalization_started')
+                    try:
+                        self.finalize(ctx)
+                        ctx.checkpoint()
+                        ctx.emit('finalization_completed')
+                    except BaseException as error:
+                        ctx.emit('finalization_failed', diagnostic=ctx._failure(error))
+                        raise
+                    finally:
+                        result.outputs = dict(ctx.outputs)
+                        ctx.finalizing = False
                 result.state = RunState.COMPLETED
         except (ExecutionCancelled, KeyboardInterrupt) as error:
             result.primary_error = error
             result.state, result.message = RunState.CANCELLED, 'Execution cancelled.'
         except Exception as error:
             result.primary_error = error
-            result.state, result.message = RunState.FAILED, 'Setup, recovery, or persistence failed.'
+            result.state, result.message = RunState.FAILED, 'Setup, final verification, recovery, or persistence failed. See technical logs.'
         finally:
             result.unprocessed = [row.reference for row in remaining if not (ctx.business_succeeded and row.reference == ctx.row)]
             ctx.cleaning = True

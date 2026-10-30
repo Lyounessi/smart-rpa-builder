@@ -36,5 +36,6 @@ class Runner:
                 if result.state == RunState.COMPLETED:
                     result.state = RunState.FAILED
             kind = {RunState.COMPLETED: 'run_completed', RunState.CANCELLED: 'run_cancelled'}.get(result.state, 'run_failed')
-            self.events.emit(kind, summary=result)
+            extra = {'diagnostic':ctx._failure(result.primary_error)} if result.primary_error is not None else {}
+            self.events.emit(kind, summary=result, **extra)
         return result

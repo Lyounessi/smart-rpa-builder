@@ -22,6 +22,7 @@ urlpatterns = [
     path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
     path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),
     path('projects/<int:project_id>/build/start/', build_views.start, name='muse-build-start'),
+    path('projects/<int:project_id>/build/<uuid:session_id>/refresh/', build_views.refresh, name='muse-specification-refresh'),
     path('projects/<int:project_id>/build/<uuid:session_id>/reply/', build_views.reply, name='muse-build-reply'),
     path('projects/<int:project_id>/build/<uuid:session_id>/messages/<int:message_id>/review/', build_views.proposals, name='muse-proposal-review'),
     path('projects/<int:project_id>/build/<uuid:session_id>/specification/', build_views.specification, name='muse-specification-edit'),

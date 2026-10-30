@@ -23,7 +23,7 @@ from .forms import SpecificationForm, decision_form_data
 from .models import BuildMessage, BuildOperation, BuildProposal, BuildQuestion, BuildSession, MuseRequest
 
 MAX_ROUNDS = 3
-DECISION_FIELDS = {'setup_step_ids','per_row_step_ids','stop_on_nok','stop_on_error','success_criteria','rejection_handling','recovery_plan'}
+DECISION_FIELDS = {'setup_step_ids','per_row_step_ids','finalization_step_ids','stop_on_nok','stop_on_error','success_criteria','rejection_handling','recovery_plan'}
 BRIEF_FIELDS = {'automation_goal':'automation_goal','global_rules':'global_rules','brief_success_criteria':'success_criteria'}
 
 
@@ -76,15 +76,29 @@ def local_issues(session):
 def refresh_state(session):
     latest = session.messages.filter(role='assistant').last()
     unsupported = latest.structured.get('unsupported_requests', []) if latest else []
-    ready = (session.model_ready or session.manual_reviewed) and not local_issues(session) and not unsupported
+    resolved_warnings = session.manual_reviewed and bool(session.decisions.get('unsupported_request_resolution','').strip())
+    ready = (session.model_ready or session.manual_reviewed) and not local_issues(session) and (not unsupported or resolved_warnings)
     ready = ready and not session.questions.filter(resolved=False).exists() and not session.proposals.filter(status='pending').exists()
     session.state = 'ready_to_generate' if ready else 'needs_clarification'
     session.error_message = ''
 
 
 def initial_decisions(project):
-    return {'setup_step_ids':[], 'per_row_step_ids':[], 'stop_on_nok':False, 'stop_on_error':True,
+    return {'setup_step_ids':[], 'per_row_step_ids':[], 'finalization_step_ids':[], 'stop_on_nok':False, 'stop_on_error':True,
             'success_criteria':project.success_criteria, 'rejection_handling':'', 'recovery_plan':''}
+
+
+@transaction.atomic
+def refresh_specification(session):
+    """Copy editable decisions onto current context; confirmation and API review reset."""
+    if session.operations.filter(active_slot='local').exists():
+        raise MuseError('operation_active', 'Wait for the current operation to finish.')
+    decisions = {**initial_decisions(session.project), **deepcopy(session.decisions)}
+    current = BuildSession.objects.create(project=session.project, snapshot=create_snapshot(session.project),
+        decisions=decisions, assumptions=deepcopy(session.assumptions))
+    BuildMessage.objects.create(session=current, role='user', review_status='confirmed',
+        content='Copied the previous specification onto current project and framework context. Review the phase allocation and decisions, save them locally, then explicitly confirm before generating a new version. Previous versions and review history are preserved.')
+    return current
 
 
 def queue_review(session, *, content, answers=None, include_images=False, expected_revision=None):
@@ -220,8 +234,9 @@ def proposal_plan(session, proposals):
             if not form.is_valid():
                 raise MuseError('invalid_proposal', 'A proposed workflow change violates the existing target or mapping rules.')
             plans.append(form)
-    if set(decisions.get('setup_step_ids',[])) & set(decisions.get('per_row_step_ids',[])):
-        raise MuseError('invalid_proposal', 'Setup and per-row allocations must not overlap.')
+    allocations = [set(decisions.get(key,[])) for key in ['setup_step_ids','per_row_step_ids','finalization_step_ids']]
+    if any(allocations[a] & allocations[b] for a,b in [(0,1),(0,2),(1,2)]):
+        raise MuseError('invalid_proposal', 'Setup, per-row and final-check allocations must not overlap.')
     return decisions, plans
 
 
@@ -336,7 +351,8 @@ def save_decisions(session, form, *, expected_revision=None):
     check_revision(session, expected_revision)
     latest = session.messages.filter(role='assistant').last()
     if latest and latest.structured.get('unsupported_requests'):
-        raise MuseError('unsupported', 'Correct unsupported requests in the project and start a fresh review.')
+        if not form.cleaned_data.get('unsupported_request_resolution') or not form.cleaned_data['resolve_questions']:
+            raise MuseError('unsupported', 'Explain how the capability warnings are resolved using supported actions, and confirm that the outstanding questions are resolved. No further API review is required.')
     if session.questions.filter(resolved=False).exists() and not form.cleaned_data['resolve_questions']:
         raise MuseError('unresolved_questions', 'Explicitly confirm that the listed questions are resolved by these decisions.')
     session.decisions = form.decisions()

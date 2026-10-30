@@ -7,7 +7,7 @@ from .generation_schema import MAX_SOURCE_BYTES
 IMPORTS = {'robot_framework.base':{'BaseRobot'},
            'robot_framework.contracts':{'BusinessRejection','TechnicalError','ExecutionCancelled','Outcome'},
            'robot_framework.email':{'EmailStep'}}
-ACTIONS = {'fill','click','select_option','read_text','extract_text','assert_visible','navigate','step','checkpoint','business_completed'}
+ACTIONS = {'fill','click','select_option','read_text','read_value','wait_for_progress','extract_text','assert_visible','navigate','step','checkpoint','business_completed'}
 BUILTINS = {'str','int','float','bool','len','min','max','round','isinstance','list','dict','tuple','set','all','any'}
 STRING_METHODS = {'strip','lower','upper','casefold','replace','startswith','endswith','get','items','values','keys'}
 UNKNOWN = object()
@@ -96,7 +96,7 @@ def validate_source(source, *, robot_name, specification):
                         fail(node,'Email template references an unknown input.')
                 except ValueError:
                     fail(node,'Email template must use simple input substitution.')
-    expected = {'setup':['self','ctx'],'process':['self','ctx','inputs'],'teardown':['self','ctx'],'recover':['self','ctx','outcome']}
+    expected = {'setup':['self','ctx'],'process':['self','ctx','inputs'],'finalize':['self','ctx'],'teardown':['self','ctx'],'recover':['self','ctx','outcome']}
     for required in ['setup','process']:
         if required not in methods:
             fail(cls,f'Define the {required} lifecycle method.')
@@ -169,17 +169,20 @@ def validate_source(source, *, robot_name, specification):
                     action = function.attr
                     if action not in ACTIONS: fail(node,'Unknown context action.')
                     parameters = {'fill':['element_id','value'],'select_option':['element_id','value'],
-                        'click':['element_id'],'read_text':['element_id'],'extract_text':['element_id','output_key'],'assert_visible':['element_id'],
+                        'click':['element_id'],'read_text':['element_id'],'read_value':['element_id'],'extract_text':['element_id','output_key'],'assert_visible':['element_id'],
+                        'wait_for_progress':['element_id','previous_text','completion_element_id'],
                         'navigate':['application_id'],'step':['step_id'],'checkpoint':[],'business_completed':[]}.get(action,[])
                     supplied = parameters[:len(node.args)] + [item.arg for item in node.keywords]
                     if len(node.args)>len(parameters) or any(key not in parameters for key in supplied) or len(set(supplied)) != len(supplied) or set(supplied) != set(parameters):
                         fail(node,'Context action arguments do not match the framework API.')
                     argument = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg in {'element_id','application_id','step_id'}),None)
                     target = resolve(argument,env) if argument is not None else UNKNOWN
-                    if action in {'fill','click','select_option','read_text','extract_text','assert_visible'}:
+                    if action in {'fill','click','select_option','read_text','read_value','wait_for_progress','extract_text','assert_visible'}:
                         if not isinstance(target,str) or target not in elements:
                             fail(node,'Element reference is unknown or dynamic; use a confirmed captured ID.')
                         calls.append((name,action,target,input_refs(node,env)))
+                        if action == 'read_text' and any(target in step['element_ids'] and step['action'] in {'fill','select'} for step in context['steps']):
+                            fail(node,'Do not read DOM text to inspect an input value; use ctx.read_value. Input text is not a submission success check.')
                         if action == 'extract_text':
                             key_node = node.args[1] if len(node.args)>1 else next((k.value for k in node.keywords if k.arg == 'output_key'),None)
                             key = resolve(key_node,env) if key_node is not None else UNKNOWN
@@ -188,7 +191,12 @@ def validate_source(source, *, robot_name, specification):
                             if not isinstance(key,str) or not key or not configured_outputs:
                                 fail(node,'Extraction must use the configured output name and captured target.')
                             output_calls.append((name,target,key))
-                        if action == 'assert_visible': visible.add(name)
+                        if action in {'assert_visible','wait_for_progress'}: visible.add(name)
+                        if action == 'wait_for_progress':
+                            completion_node = node.args[2] if len(node.args)>2 else next((k.value for k in node.keywords if k.arg == 'completion_element_id'),None)
+                            completion = resolve(completion_node,env) if completion_node is not None else UNKNOWN
+                            if not isinstance(completion,str) or completion not in elements:
+                                fail(node,'Progress completion target must be a confirmed captured ID.')
                     elif action == 'navigate' and str(target) not in applications:
                         fail(node,'Application reference is unknown or dynamic.')
                     elif action == 'step' and (not isinstance(target,str) or not target or len(target)>200):
@@ -219,20 +227,24 @@ def validate_source(source, *, robot_name, specification):
         return found
     decisions = specification['decisions']
     for owner, target, key in output_calls:
-        if owner not in reachable('process') or owner in reachable('setup') or owner in reachable('recover') or owner in reachable('teardown'):
-            fail(methods[owner],'Extracted outputs belong to process, never setup, recovery or teardown.')
+        phases = ['finalize' if step['id'] in decisions.get('finalization_step_ids',[]) else 'process'
+            for step in context['steps'] if step.get('output_key') == key and target in step['element_ids']]
+        if not any(owner in reachable(phase) for phase in phases) or any(owner in reachable(phase) for phase in ['setup','recover','teardown']) or any(owner in reachable(phase) for phase in ['process','finalize'] if phase not in phases):
+            fail(methods[owner],'Extracted outputs must use their configured process or finalize phase, never setup, recovery or teardown.')
     for owner, action, target, refs in calls:
-        if owner in reachable('setup') and refs:
-            fail(methods[owner],'Setup cannot use per-row inputs.')
+        if (owner in reachable('setup') or owner in reachable('finalize')) and refs:
+            fail(methods[owner],'Setup and final checks cannot use per-row inputs.')
         if action in {'fill','click','select_option'}:
             configured = [step for step in context['steps'] if target in step['element_ids']
                 and {'fill':'fill','click':'click','select':'select_option','read_text':'extract_text'}.get(step['action']) == action]
             if not configured:
                 fail(methods[owner],'UI mutation must match a configured step action and target.')
-            elif owner in reachable('setup') and not any(step['id'] in decisions['setup_step_ids'] for step in configured):
-                fail(methods[owner],'Per-row UI mutations cannot run during setup.')
-            elif owner in reachable('process') and not any(step['id'] in decisions['per_row_step_ids'] for step in configured):
-                fail(methods[owner],'Setup UI mutations cannot run for every row.')
+            else:
+                for phase, key in [('setup','setup_step_ids'),('process','per_row_step_ids'),('finalize','finalization_step_ids')]:
+                    if owner in reachable(phase) and not any(step['id'] in decisions.get(key,[]) for step in configured):
+                        fail(methods[owner],'UI mutation must run only in its confirmed lifecycle phase.')
+                if owner in reachable('teardown') or owner in reachable('recover'):
+                    fail(methods[owner],'Configured business UI mutations cannot run in cleanup or recovery.')
     if not any(isinstance(item,ast.With) and any(isinstance(part.context_expr,ast.Call)
             and isinstance(part.context_expr.func,ast.Attribute) and isinstance(part.context_expr.func.value,ast.Name)
             and part.context_expr.func.value.id == 'ctx' and part.context_expr.func.attr == 'step'
@@ -240,11 +252,11 @@ def validate_source(source, *, robot_name, specification):
         fail(cls,'process must report progress through named ctx.step blocks.')
     for step in context['steps']:
         action = {'fill':'fill','click':'click','select':'select_option','read_text':'extract_text'}.get(step['action'])
-        phase = 'setup' if step['id'] in decisions['setup_step_ids'] else 'process'
+        phase = 'setup' if step['id'] in decisions['setup_step_ids'] else ('finalize' if step['id'] in decisions.get('finalization_step_ids',[]) else 'process')
         matches = [(owner,kind,target,refs) for owner,kind,target,refs in calls if owner in reachable(phase) and kind == action and target in step['element_ids']]
         if not matches:
             fail(cls,f'Configured step {step["id"]} is not represented in its confirmed lifecycle phase.')
-        elif action == 'extract_text' and not any(owner in reachable('process') and target in step['element_ids']
+        elif action == 'extract_text' and not any(owner in reachable(phase) and target in step['element_ids']
                 and key == step.get('output_key') for owner,target,key in output_calls):
             fail(cls,f'Configured step {step["id"]} must save text to its named output.')
         elif action in {'fill','select_option'} and (not step['input_mapping'] or step['input_mapping']['key'] not in set().union(*(refs for _,_,_,refs in matches))):

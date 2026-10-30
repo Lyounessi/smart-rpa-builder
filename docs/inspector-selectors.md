@@ -7,8 +7,8 @@ An ID is not required to capture an element. Selection tries a bounded list of c
 3. Allowlisted semantic attributes: `formcontrolname`, `ng-reflect-name`, dedicated test/automation attributes, ARIA label and name.
 4. ID without a suspected generated pattern (still unverified).
 5. Placeholder, title, alt and supported exact text.
-6. Class token and bounded class-pair combinations, excluding common state/generated patterns.
-7. Up to three parent levels using semantic attributes, a label associated by single-control container structure, or class context.
+6. Nearby-label XPath, then up to three parent levels using semantic attributes, a label associated by single-control container structure, or class context.
+7. Class token and bounded class-pair combinations, excluding common state/generated patterns.
 
 At most 48 deduplicated candidates are considered. CSS strings escape quotes, backslashes and control characters without losing Unicode. Unsupported candidate syntax is skipped; a closed page still stops capture. If all candidates fail, the message explains the supported fallbacks. Absolute/positional XPath, coordinate fallback, OCR, frames and closed shadow DOM are not added by this change.
 
@@ -32,7 +32,9 @@ These are candidates to validate, not a promise that the website will never chan
 
 ## Saved targets and identity evidence
 
-The locator contract remains version 1: existing CSS/role/label/test-ID/text resolution works in both inspector and runner. No migration is required. Capture review names can use nearby labels when no associated accessible name exists.
+The locator contract remains version 1: CSS/role/label/test-ID/text resolution is preserved, and explicit `xpath` resolution is supported in both inspector and runner. The XPath uses label identity, not absolute positions. No inspector migration is required. Capture review names can use nearby labels when no associated accessible name exists.
+
+Each new capture saves up to six verified candidates in selector quality, displayed in preferred order. They match the exact clicked element uniquely at capture time. They are evidence, not automatic runtime retries: switching selectors after an uncertain Submit could repeat an external action. Short mixed-case alphanumeric IDs/names containing digits are treated as suspected generated values; heuristics cannot prove stability. Use the existing Test action after a safe manual reload/page change to record identity evidence and observed ID changes.
 
 New identity baselines can include nearby labels and allowlisted semantic attributes. Old baselines compare only their recorded fields, so adding these metadata fields does not invalidate old named captures. Unique class-only matches without semantic identity stay **unverified**, rather than being incorrectly called an identity mismatch. Real recorded-identity differences still require review. Cross-document observations remain evidence, never a stability guarantee.
 

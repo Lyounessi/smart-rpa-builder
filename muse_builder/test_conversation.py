@@ -205,6 +205,20 @@ class ConversationTests(TestCase):
             save_decisions(session,self.valid_form())
         self.assertEqual(caught.exception.code,'unsupported')
 
+    def test_explicit_supported_replacement_resolves_model_warning_without_another_review(self):
+        session = self.start()
+        self.review(session,self.response(unsupported_requests=['Fixed sleeps are unsupported']))
+        data = self.valid_form().data.copy()
+        data['unsupported_request_resolution'] = 'No fixed sleeps. Use bounded framework waits only.'
+        form = SpecificationForm(data,project=self.project)
+        self.assertTrue(form.is_valid(),form.errors)
+        before = session.operations.count()
+        session = save_decisions(session,form)
+        self.assertEqual(session.state,'ready_to_generate')
+        self.assertEqual(session.operations.count(),before)
+        session = confirm_specification(session)
+        self.assertIn('bounded framework waits',session.confirmed_specification['decisions']['unsupported_request_resolution'])
+
     def test_stale_snapshot_blocks_edits_and_followups(self):
         session = self.start()
         self.review(session,self.response())
