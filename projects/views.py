@@ -6,6 +6,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from .forms import AutomationBriefForm, ProjectForm, StepForm, WindowForm
 from .models import Project
 from .services import move_step, save_new_step
+from django.db.models import Count, Q
 
 
 @require_GET
@@ -45,7 +46,11 @@ def project_edit(request, project_id=None):
 def project_detail(request, project_id):
     project = get_object_or_404(Project, pk=project_id)
     steps = project.steps.select_related("window", "input_column").prefetch_related("element_references__element")
-    return render(request, "projects/detail.html", {"project": project, "steps": steps})
+    datasets=project.datasets.annotate(
+        pending_count=Count('rows',filter=Q(rows__processing_status='pending',rows__deleted_at__isnull=True)),
+        in_progress_count=Count('rows',filter=Q(rows__processing_status='in_progress',rows__deleted_at__isnull=True)),
+        treated_count=Count('rows',filter=Q(rows__processing_status='done',rows__deleted_at__isnull=True)))
+    return render(request, "projects/detail.html", {"project": project, "steps": steps,'datasets':datasets})
 
 
 @require_http_methods(['GET', 'POST'])

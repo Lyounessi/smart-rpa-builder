@@ -90,6 +90,9 @@ def robot_detail(request, robot_id):
             attempt.cells = [attempt.input_snapshot.get(key, '') if attempt.input_snapshot is not None else 'Not recorded'
                              for key in run.dataset.headers]
             attempt.elapsed = duration(seconds(attempt.started_at, attempt.finished_at))
+            attempt.run=run
+        from .views import explain_attempts
+        explain_attempts(attempts.object_list)
     queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[],deleted_at__isnull=True).aggregate(
         pending=Count('pk', filter=Q(processing_status='pending')), in_progress=Count('pk', filter=Q(processing_status='in_progress')),
         done=Count('pk', filter=Q(processing_status='done')))

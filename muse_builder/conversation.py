@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import sys
+import re
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -21,6 +22,7 @@ from .context import canonical, create_snapshot, require_current
 from .conversation_schema import ClarificationResponse
 from .forms import SpecificationForm, decision_form_data
 from .models import BuildMessage, BuildOperation, BuildProposal, BuildQuestion, BuildSession, MuseRequest
+from .planning import workflow_requirements
 
 MAX_ROUNDS = 3
 DECISION_FIELDS = {'setup_step_ids','per_row_step_ids','finalization_step_ids','stop_on_nok','stop_on_error','success_criteria','rejection_handling','recovery_plan'}
@@ -64,7 +66,7 @@ def local_issues(session):
     form = SpecificationForm(decision_form_data(session.decisions), project=session.project)
     issues = []
     if not form.is_valid():
-        issues.extend(f'{field}: {" ".join(errors)}' for field,errors in form.errors.items())
+        issues.extend(f'{form.fields[field].label or field.replace("_"," ") if field in form.fields else "Step allocation"}: {" ".join(errors)}' for field,errors in form.errors.items())
     for step in session.snapshot.project_data['steps']:
         if step['action'] not in {'click','fill','select','read_text'}:
             issues.append(f'Step {step["id"]} needs a supported action in the project editor.')
@@ -88,6 +90,23 @@ def initial_decisions(project):
             'success_criteria':project.success_criteria, 'rejection_handling':'', 'recovery_plan':''}
 
 
+def prepare_local_plan(project):
+    issues=workflow_requirements(project)
+    if issues:
+        raise MuseError('incomplete_workflow','Complete the workflow requirements shown below before preparing a plan.')
+    if BuildOperation.objects.filter(active_slot='local').exists():
+        raise MuseError('operation_active','Wait for the active Muse operation to finish before preparing a new plan.')
+    decisions=initial_decisions(project)
+    # These are visible suggestions, never confirmation of business behavior.
+    decisions['per_row_step_ids']=list(project.steps.filter(action__in=['fill','select']).values_list('pk',flat=True))
+    decisions['stop_on_nok']=True
+    snapshot=create_snapshot(project)
+    session=BuildSession.objects.create(project=project,snapshot=snapshot,decisions=decisions)
+    BuildMessage.objects.create(session=session,role='user',review_status='confirmed',
+        content='Prepared a local draft plan from saved workflow data. Mapped Fill/Select steps are suggested per record; both failure policies are suggested as Stop. Review, save and explicitly confirm the plan before generation. No Muse API call was made.')
+    return session
+
+
 @transaction.atomic
 def refresh_specification(session):
     """Copy editable decisions onto current context; confirmation and API review reset."""
@@ -102,6 +121,8 @@ def refresh_specification(session):
 
 
 def queue_review(session, *, content, answers=None, include_images=False, expected_revision=None):
+    if workflow_requirements(session.project):
+        raise MuseError('incomplete_workflow','Fix missing targets, actions and input mappings before requesting paid help.')
     MetaConfiguration.from_settings()
     SpendingPolicy.load(settings.META_MODEL)
     guard_text(content)
@@ -150,6 +171,8 @@ def start_session(project):
     MetaConfiguration.from_settings()
     if not project.steps.exists():
         raise MuseError('empty_workflow', 'Add workflow steps before starting a Muse review.')
+    if workflow_requirements(project):
+        raise MuseError('incomplete_workflow','Fix missing targets, actions and input mappings before requesting paid help.')
     if BuildOperation.objects.filter(active_slot='local').exists():
         raise MuseError('operation_active', 'Another Muse review is queued or active. Wait for it to finish.')
     snapshot = create_snapshot(project)
@@ -161,9 +184,12 @@ def start_session(project):
 
 
 def conversation_state(session):
-    recent = list(session.messages.order_by('-pk').values('role','content')[:4])
+    recent = list(session.messages.order_by('-pk').values('role','content')[:2])
+    saved=session.messages.filter(role='user',structured__has_key='confirmed_decisions').order_by('-pk').first()
     return {'decisions':session.decisions, 'confirmed_assumptions':session.assumptions,
-            'policy_source':'framework defaults until explicitly confirmed',
+            'policy_source':'locally saved decisions' if saved else 'proposed defaults until explicitly confirmed',
+            'last_saved_decisions':saved.structured['confirmed_decisions'] if saved else {},
+            'resolved_questions':list(session.questions.filter(resolved=True).values('key','text','answer')),
             'outstanding_questions':list(session.questions.filter(resolved=False).values('key','text','choices','answer')),
             'remaining_rounds':MAX_ROUNDS - session.rounds_used,
             'local_missing_requirements':local_issues(session), 'recent_exchanges':list(reversed(recent))}
@@ -273,6 +299,17 @@ def run_review(operation_id, *, service=None):
         known = {q.key:q for q in session.questions.all()}
         if any(key not in known or not known[key].answer or known[key].resolved for key in response.resolved_question_ids):
             raise MuseError('invalid_structured_response', 'Muse tried to resolve a question without a recorded answer.')
+        def question_identity(text):
+            return re.sub(r'\W+',' ',text.casefold()).strip()
+        existing_texts={question_identity(q.text):q for q in known.values()}
+        filtered=[]
+        for question in response.questions:
+            same=existing_texts.get(question_identity(question.text))
+            if same and (same.key!=question.id or same.resolved or same.answer.strip()):
+                continue
+            filtered.append(question)
+        repeats=len(response.questions)-len(filtered)
+        response.questions=filtered
         for question in response.questions:
             if question.id in known and (known[question.id].resolved or known[question.id].text != question.text):
                 raise MuseError('invalid_structured_response', 'Muse reused a question identifier inconsistently.')
@@ -282,7 +319,8 @@ def run_review(operation_id, *, service=None):
             require_current(current.snapshot)
             if current_op.active_slot is None or revision(current) != operation.expected_revision:
                 raise MuseError('stale_session', 'Session changed while Muse was reviewing it. Response was not applied.')
-            message = BuildMessage.objects.create(session=current, role='assistant', content=response.summary, raw_response=result.text, structured=response.model_dump())
+            note=' Previously recorded questions were not added again; their answers are retained.' if repeats else ''
+            message = BuildMessage.objects.create(session=current, role='assistant', content=response.summary+note, raw_response=result.text, structured=response.model_dump())
             for question in response.questions:
                 BuildQuestion.objects.get_or_create(session=current, key=question.id,
                     defaults={'message':message,'text':question.text,'choices':question.choices})

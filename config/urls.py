@@ -4,10 +4,12 @@ from django.urls import include, path
 from projects import views
 from projects import input_views
 from execution import robot_views
+from execution import result_views
 from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('projects/<int:project_id>/results/',result_views.project_results,name='project-results'),
     path('robots/<int:robot_id>/run/',robot_views.run_robot,name='robot-run'),
     path('projects/<int:project_id>/inputs/<int:input_id>/', input_views.input_detail, name='input-detail'),
     path('projects/<int:project_id>/inputs/<int:input_id>/delete/', input_views.input_delete, name='input-delete'),
@@ -22,6 +24,7 @@ urlpatterns = [
     path('projects/<int:project_id>/build/<uuid:session_id>/generate/', build_views.generate, name='muse-generate'),
     path('projects/<int:project_id>/build/', build_views.detail, name='muse-build'),
     path('projects/<int:project_id>/build/start/', build_views.start, name='muse-build-start'),
+    path('projects/<int:project_id>/build/prepare/', build_views.prepare, name='muse-plan-prepare'),
     path('projects/<int:project_id>/build/<uuid:session_id>/refresh/', build_views.refresh, name='muse-specification-refresh'),
     path('projects/<int:project_id>/build/<uuid:session_id>/reply/', build_views.reply, name='muse-build-reply'),
     path('projects/<int:project_id>/build/<uuid:session_id>/messages/<int:message_id>/review/', build_views.proposals, name='muse-proposal-review'),

@@ -48,13 +48,16 @@ def dataset_detail(request, project_id, dataset_id):
     dataset = get_object_or_404(project.datasets, pk=dataset_id)
     show_deleted = request.GET.get('deleted')=='1'
     rows = dataset.rows.filter(deleted_at__isnull=not show_deleted)
+    treated_count = rows.filter(processing_status='done').count() if not show_deleted else 0
+    if not show_deleted:
+        rows = rows.exclude(processing_status='done')
     page = Paginator(rows, 50).get_page(request.GET.get('page'))
     table = [{'id':row.pk,'number':row.row_number, 'cells':[row.values.get(key, '') for key in dataset.headers], 'errors':row.errors,
         'queue_status':row.get_processing_status_display(), 'editable':row.processing_status=='pending' and not row.claimed_by_id,
         'duplicable':row.processing_status=='done' and not row.claimed_by_id} for row in page]
     current_schema = list(project.inputs.values('key', 'description', 'data_type', 'required'))
     return render(request, 'projects/dataset_detail.html', {'project':project, 'dataset':dataset, 'page':page,
-        'table':table,'show_deleted':show_deleted,'deleted_count':dataset.rows.filter(deleted_at__isnull=False).count(),
+        'table':table,'show_deleted':show_deleted,'treated_count':treated_count,'deleted_count':dataset.rows.filter(deleted_at__isnull=False).count(),
         'schema_changed':current_schema != dataset.schema_snapshot})
 
 

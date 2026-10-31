@@ -1,12 +1,12 @@
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
-from .models import RobotRun
+from .models import RobotRun, ProgressEvent
 import json
 from django.http import StreamingHttpResponse
 
 
-def explain_event(run, event):
+def explain_event(run, event, prior_click=None):
     context = run.build.confirmed_specification.get('project_context',{}) if run.build else {}
     diagnostic = dict(event.diagnostic)
     target = diagnostic.get('target')
@@ -26,10 +26,36 @@ def explain_event(run, event):
         elapsed = diagnostic.get('duration_ms',0) / 1000
         reason = 'timed out' if diagnostic.get('exception_type') == 'TimeoutError' else 'failed'
         event.explanation = f'Step “{event.step}”: {action} on “{name}” {reason} after {elapsed:.2f}s ({diagnostic.get("exception_type", "Error")}).'
+        if action in {'assert_visible','read_text','read_value','wait_for_progress'}:
+            if prior_click is None:
+                prior_click=run.events.filter(pk__lt=event.pk,kind='action_completed',step=event.step,
+                    row_reference=event.row_reference,diagnostic__action='click').exists()
+            if prior_click:
+                event.explanation += ' The click completed, but its subsequent success check failed. The external outcome is unconfirmed; check the application before retrying.'
+                diagnostic['failure_stage']='verification_after_click'
     else:
         event.explanation = ''
     event.display_diagnostic = diagnostic
     return event
+
+
+def explain_attempts(attempts):
+    """Attach readable failure evidence without rewriting historical attempt outcomes."""
+    attempts=list(attempts)
+    if not attempts:
+        return
+    runs={item.run_id:item.run for item in attempts}
+    events=ProgressEvent.objects.filter(run_id__in=runs,row_reference__in=[str(a.row_id) for a in attempts],
+        kind__in=['action_completed','action_failed']).order_by('pk')
+    clicked,last_failure=set(),{}
+    for event in events:
+        key=(event.run_id,event.row_reference,event.step)
+        if event.kind=='action_completed' and event.diagnostic.get('action')=='click':
+            clicked.add(key)
+        elif event.kind=='action_failed':
+            last_failure[(event.run_id,event.row_reference)]=explain_event(runs[event.run_id],event,key in clicked).explanation
+    for attempt in attempts:
+        attempt.diagnostic_summary=last_failure.get((attempt.run_id,str(attempt.row_id)),'')
 
 
 @require_GET
@@ -49,6 +75,9 @@ def technical_logs(request, run_id):
 def progress_context(run):
     from .robot_views import duration,seconds
     attempts=list(run.attempts.select_related('row').prefetch_related('actions').order_by('pk'))
+    for attempt in attempts:
+        attempt.run=run
+    explain_attempts(attempts)
     counts={key:sum(item.outcome==key for item in attempts) for key in ['OK','NOK','ERROR']}
     finished=sum(counts.values())
     planned=run.test_options.get('planned_rows') if run.is_test else None

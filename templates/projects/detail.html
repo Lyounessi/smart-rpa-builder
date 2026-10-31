@@ -7,6 +7,7 @@
 <p>{{ project.description|linebreaksbr }}</p>
 <a href="{% url 'project-edit' project.pk %}" hx-get="{% url 'project-edit' project.pk %}" hx-target="#editor">Edit project</a>
 <a class="button secondary" href="{% url 'muse-build' project.pk %}">Build with Muse</a>
+<a class="button secondary" href="{% url 'project-results' project.pk %}">Results and treatment dates</a>
 <section aria-labelledby="automation-brief-title"><h2 id="automation-brief-title">Automation brief</h2>
 <p>Optional context for Muse, alongside your explicit workflow steps. Step targets, input mappings, and execution settings stay unchanged.</p>
 <article><h3>Goal</h3><p>{{ project.automation_goal|default:'Not specified'|linebreaksbr }}</p>
@@ -14,7 +15,7 @@
 <h3>Success criteria</h3><p>{{ project.success_criteria|default:'Not specified'|linebreaksbr }}</p></article>
 <a class="button secondary" href="{% url 'project-brief-edit' project.pk %}" hx-get="{% url 'project-brief-edit' project.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">{% if project.automation_goal or project.global_rules or project.success_criteria %}Edit{% else %}Add{% endif %} automation brief</a>
 </section>
-<section><h2>Process inputs</h2><p>Define the data each workflow run will receive. Reference these keys in your step instructions, such as “Fill using supplier_name”.</p>
+<section><h2>Input field definitions</h2><p>Define the columns in each input record, such as first_name. Fill steps use these values; actions such as Click Submit are not input fields or records.</p>
 <div class="table-scroll"><table><thead><tr><th>Key</th><th>Type</th><th>Required</th><th>Description</th><th></th></tr></thead><tbody>
 {% for input in project.inputs.all %}<tr><td><code>{{ input.key }}</code></td><td>{{ input.get_data_type_display }}</td><td>{{ input.required|yesno:"Yes,No" }}</td><td>{{ input.description }}</td><td><a href="{% url 'input-detail' project.pk input.pk %}">View</a> · <a href="{% url 'input-delete' project.pk input.pk %}">Delete</a> · <a href="{% url 'input-edit' project.pk input.pk %}" hx-get="{% url 'input-edit' project.pk input.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Edit</a></td></tr>{% empty %}<tr><td colspan="5">No inputs yet. Add keys such as name or document_type.</td></tr>{% endfor %}
 </tbody></table></div>
@@ -22,7 +23,7 @@
 <section><h2>Input datasets</h2><p>Upload CSV or XLSX records, or create a dataset manually. Open a dataset to add inputs, edit pending rows, review validation and see execution history.</p>
 <a class="button secondary" href="{% url 'dataset-upload' project.pk %}">Upload input file</a>
 <a class="button secondary" href="{% url 'dataset-create' project.pk %}">Create dataset manually</a>
-<div class="grid">{% for dataset in project.datasets.all %}<article><h3><a href="{% url 'dataset-detail' project.pk dataset.pk %}">{{ dataset.name }}</a></h3><p>{{ dataset.get_status_display }} · {{ dataset.row_count }} rows · {{ dataset.invalid_row_count }} invalid</p><small>{{ dataset.created_at|date:"M j, Y H:i" }}</small></article>{% empty %}<p>No datasets yet.</p>{% endfor %}</div></section>
+<div class="grid">{% for dataset in datasets %}<article><h3><a href="{% url 'dataset-detail' project.pk dataset.pk %}">{{ dataset.name }}</a></h3><p>{{ dataset.get_status_display }} · {{ dataset.pending_count }} pending · {{ dataset.in_progress_count }} in progress · {{ dataset.treated_count }} treated · {{ dataset.invalid_row_count }} invalid</p><a href="{% url 'project-results' project.pk %}?dataset={{ dataset.pk }}">View treated results</a><br><small>{{ dataset.created_at|date:"M j, Y H:i" }}</small></article>{% empty %}<p>No datasets yet.</p>{% endfor %}</div></section>
 <section><h2>Target applications</h2><p>Starting URLs launch your application. Captured elements will retain their own capture URLs.</p>
 <div class="grid">{% for window in project.windows.all %}<article><h3>{{ window.name }}</h3><p class="url">{{ window.target_url }}</p><a href="{% url 'window-edit' project.pk window.pk %}" hx-get="{% url 'window-edit' project.pk window.pk %}" hx-target="#editor">Edit application</a></article>{% empty %}<p>No applications yet. Add your target website to get started.</p>{% endfor %}</div>
 <a class="button secondary" href="{% url 'window-create' project.pk %}" hx-get="{% url 'window-create' project.pk %}" hx-target="#editor" hx-swap="innerHTML show:top">Add target application</a></section>

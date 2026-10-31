@@ -29,6 +29,20 @@ document.addEventListener('change', event => {
   if (event.target.matches('[data-step-action]')) updateStepInputs();
 });
 
+function updateBuildRecovery() {
+  document.querySelectorAll('.build-plan-form').forEach(form => {
+    const recovery = form.querySelector('[data-build-recovery]');
+    const nok = form.querySelector('[name="stop_on_nok"]');
+    const error = form.querySelector('[name="stop_on_error"]');
+    if (recovery && nok && error) recovery.hidden = nok.value === 'true' && error.value === 'true';
+  });
+}
+document.addEventListener('DOMContentLoaded', updateBuildRecovery);
+document.addEventListener('htmx:load', updateBuildRecovery);
+document.addEventListener('change', event => {
+  if (event.target.matches('.build-plan-form [name="stop_on_nok"], .build-plan-form [name="stop_on_error"]')) updateBuildRecovery();
+});
+
 let runSelectionFocus = null;
 document.addEventListener('htmx:beforeRequest', event => {
   const field = event.detail.elt;

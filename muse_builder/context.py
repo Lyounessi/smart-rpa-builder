@@ -146,9 +146,17 @@ def require_current(snapshot):
         raise MuseError('stale_specification', 'Project context changed. Prepare and confirm a new snapshot before continuing.')
 
 
-def request_context(snapshot, *, include_images=True):
-    instructions = '\n'.join(snapshot.platform_instructions) + '\n\n' + snapshot.framework_contract + '\n\nExample robot:\n' + snapshot.example_robot
-    content = [{'type':'input_text', 'text':canonical(snapshot.project_data)}]
+def request_context(snapshot, *, include_images=True, compact=False):
+    instructions = '\n'.join(snapshot.platform_instructions) + '\n\n' + snapshot.framework_contract
+    data=snapshot.project_data
+    if compact:
+        # Planning needs element identity and mappings, not capture diagnostics or source examples.
+        data={**data,'captured_elements':[{key:item[key] for key in
+            ['id','application_id','name','description','element_type','image_id'] if key in item}
+            for item in data.get('captured_elements',[])]}
+    else:
+        instructions += '\n\nExample robot:\n' + snapshot.example_robot
+    content = [{'type':'input_text', 'text':canonical(data)}]
     total = 0
     if len((instructions + content[0]['text']).encode('utf-8')) > MAX_TEXT_BYTES:
         raise MuseError('context_limit', 'Saved context exceeds the text limit.')

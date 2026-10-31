@@ -180,6 +180,10 @@ Run progress includes [technical execution logs](docs/execution-logs.md): action
 
 [Final verification](docs/final-verification.md) runs once after all selected rows succeed, before cleanup. The specification form allocates setup, per-row and final-check steps. Update a specification locally, confirm it, then explicitly generate a new robot version; previous builds and run history stay intact.
 
+[Project results](docs/project-results.md) separates the pending/in-progress input queue from dated treatments and execution attempts. Filter results by date, dataset, run or version; inspect original inputs, outputs and readable submission-verification failures without rewriting historical outcomes.
+
+[Guided robot creation](docs/guided-build.md) uses Describe → Review plan → Generate. Prepare and confirm the plan locally, choose when each step runs, and request optional paid Muse help only for unresolved decisions. Local checks run first; conversation history and technical details are collapsed. Clarification sends a smaller planning context while generation retains the full confirmed context.
+
 ### Step input mappings
 
 In the step editor, choose **Click**, **Fill**, or **Select option**. Fill and Select option require an **Input column** from the current project's process inputs (for example `name`). This stores a reference to the input definition, so the future runner can use that column's value from each dataset row. Click clears the input mapping. Captured targets remain optional while drafting a step.
