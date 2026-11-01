@@ -55,6 +55,11 @@ according to the configured phase. Finalize outputs belong to the run, not a row
 read_text reads DOM text, never an input's entered value. Use read_value for input
 values. Neither input inner text nor mere field visibility proves Submit advanced
 the application. Use an explicit bounded postcondition from the confirmed context.
+When confirmed success is changed round text OR final completion, implement both
+branches using ctx.wait_for_progress with the confirmed captured status and completion
+targets. Capture status text BEFORE Submit. Do not replace this rule with an
+unconditional next-form visibility or cleared-input check: final submission may
+remove the form. If the needed status target is missing, ask rather than invent it.
 Use named ctx.step blocks and explicit success assertions in process. If continuing,
 recover must explicitly verify a known state and return True. No while loops, UI
 submission loops, sleeps, print/log calls, retries, raw browser/ORM or external clients.

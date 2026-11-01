@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Results · {{ project.name }}{% endblock %}
+{% block content %}
+<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a>
+<p class="eyebrow">Project results</p><h1>Treated records and outcomes</h1>
+<p>Each result is one dataset record's execution attempt. Fill and Submit are workflow actions, never additional input records.</p>
+<form method="get" class="results-filters" aria-label="Filter results">{{ form.non_field_errors }}
+{% for field in form %}<div>{{ field.as_field_group }}</div>{% endfor %}
+<div class="results-filter-actions"><button>Filter results</button> <a href="{% url 'project-results' project.pk %}">Clear filters</a></div></form>
+<p class="helptext">Dates use {{ results_timezone }}. Treated records are filtered by confirmed treatment time; unconfirmed attempts use their attempt time. Missing historical treatment times are not invented.</p>
+<p><strong>{{ page.paginator.count }}</strong> matching attempt{{ page.paginator.count|pluralize }}. Repeated attempts remain separate. Deleted inputs keep their execution history.</p>
+{% for attempt in page %}<article class="result-card">
+<div class="result-heading"><h2>Record {{ attempt.row.row_number }} · {{ attempt.run.dataset.name }}</h2><span class="run-state {% if attempt.is_treated %}state-ready{% endif %}">{% if attempt.is_treated %}Treated{% else %}Processing unconfirmed{% endif %}</span></div>
+<p>{% if attempt.is_treated %}Treated at <strong>{{ attempt.treatment_at|date:'Y-m-d H:i:s'|default:'Not recorded' }}</strong>{% else %}Attempted at {{ attempt.filter_at|date:'Y-m-d H:i:s' }}{% endif %} · {{ attempt.elapsed }} · Version {{ attempt.run.build.version|default:'Not recorded' }} · Outcome {{ attempt.outcome|default:'Interrupted / in progress' }}</p>
+{% if attempt.row.deleted_at %}<p class="muted">Original input was deleted; its treatment history is preserved.</p>{% endif %}
+{% if attempt.diagnostic_summary %}<aside><strong>What happened</strong><p>{{ attempt.diagnostic_summary }}</p></aside>{% else %}<p>{{ attempt.message }}</p>{% endif %}
+<div class="result-values"><section><h3>Original input</h3>{% if attempt.input_snapshot is not None %}<dl>{% for key,value in attempt.input_snapshot.items %}<dt>{{ key }}</dt><dd>{{ value|linebreaksbr }}</dd>{% empty %}<dd>No input fields recorded.</dd>{% endfor %}</dl>{% else %}<p>Original values were not recorded for this historical attempt.</p>{% endif %}</section>
+<section><h3>Record outputs</h3><dl>{% for key,value in attempt.outputs.items %}<dt>{{ key }}</dt><dd>{{ value|linebreaksbr }}</dd>{% empty %}<dd>No extracted outputs. A record can be treated successfully without extracting text.</dd>{% endfor %}</dl></section></div>
+{% if attempt.run.outputs %}<details><summary>Run-level final verification</summary><dl>{% for key,value in attempt.run.outputs.items %}<dt>{{ key }}</dt><dd>{{ value|linebreaksbr }}</dd>{% endfor %}</dl></details>{% endif %}
+<p><a href="{% url 'run-detail' attempt.run_id %}">Run details and logs</a> · <a href="{% url 'dataset-row-detail' project.pk attempt.run.dataset_id attempt.row_id %}">Record history</a> · <a href="{% url 'dataset-detail' project.pk attempt.run.dataset_id %}">Pending inputs</a></p>
+</article>{% empty %}<article><h2>No matching results</h2><p>Confirmed treatments appear here after execution. Pending records stay in their input dataset. Adjust the filters to see failed or unconfirmed attempts.</p></article>{% endfor %}
+{% if page.has_other_pages %}<nav aria-label="Result pages">{% if page.has_previous %}<a href="?{{ filter_query }}&amp;page={{ page.previous_page_number }}">Previous</a>{% endif %} Page {{ page.number }} of {{ page.paginator.num_pages }} {% if page.has_next %}<a href="?{{ filter_query }}&amp;page={{ page.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}
+{% endblock %}

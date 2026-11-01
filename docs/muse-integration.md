@@ -1,6 +1,6 @@
-# Muse integration — Phase 1: API connection
+# Muse API configuration and connection
 
-Phases 2 and 3 are implemented: see [context snapshots and spending controls](muse-context-budget.md) and [Build with Muse clarification](muse-conversation.md). Run migrations before using the tracked connection check or review interface. Robot generation remains deferred.
+Muse review and draft generation are implemented. Start with the [guided Build flow](guided-build.md), then see [context and spending controls](muse-context-budget.md) or [draft generation](muse-generation.md) for details. Run migrations before using the application. Source review and execution are separate explicit actions.
 
 The backend uses the OpenAI Python SDK against Meta Model API at the fixed URL `https://api.meta.ai/v1`. The initial model is `muse-spark-1.3`, configurable through `META_MODEL`. This calls Meta's model API directly; it does not launch the Muse Code terminal agent or grant it shell, filesystem, browser, or email tools.
 

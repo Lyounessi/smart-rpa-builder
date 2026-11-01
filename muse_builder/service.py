@@ -66,7 +66,7 @@ class MuseService:
             input = 'Reply exactly OK.'
         else:
             require_current(snapshot)
-            instructions, input = request_context(snapshot, include_images=include_images)
+            instructions, input = request_context(snapshot, include_images=include_images,compact=operation=='clarification')
         if conversation_state is not None:
             input[0]['content'].append({'type':'input_text','text':'Conversation state: ' + canonical(conversation_state)})
         if extra_policy:

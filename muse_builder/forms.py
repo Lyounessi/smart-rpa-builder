@@ -36,13 +36,42 @@ class SpecificationForm(forms.Form):
         help_text='If Muse flagged unsupported requests, explain how you removed or replaced them with supported actions. This does not enable unsupported capabilities.',
         widget=forms.Textarea(attrs={'rows':2}))
 
-    def __init__(self, *args, project, **kwargs):
+    def __init__(self, *args, project, guided=False, **kwargs):
+        steps=list(project.steps.all())
+        self.guided=guided
+        if guided:
+            data=args[0] if args else kwargs.get('data')
+            if data is not None:
+                data=data.copy()
+                allocation={'setup':[],'per_row':[],'finalization':[]}
+                for step in steps:
+                    phase=data.get(f'phase_{step.pk}')
+                    if phase in allocation:
+                        allocation[phase].append(str(step.pk))
+                for phase,ids in allocation.items():
+                    if hasattr(data,'setlist'):
+                        data.setlist(phase+'_step_ids',ids)
+                    else:
+                        data[phase+'_step_ids']=ids
+                if args:
+                    args=(data,*args[1:])
+                else:
+                    kwargs['data']=data
         super().__init__(*args, **kwargs)
         for name in ['setup_step_ids','per_row_step_ids','finalization_step_ids']:
             self.fields[name].queryset = project.steps.all()
         self.step_ids = set(project.steps.values_list('pk', flat=True))
         self.read_step_ids = set(project.steps.filter(action='read_text').values_list('pk', flat=True))
         self.input_step_ids = set(project.steps.filter(action__in=['fill','select']).values_list('pk', flat=True))
+        if guided:
+            labels={'setup':'Before processing · once','per_row':'For each record','finalization':'After processing · final check'}
+            for step in steps:
+                phases=['per_row'] if step.action in {'fill','select'} else (['per_row','finalization'] if step.action=='read_text' else list(labels))
+                assigned=[phase for phase in labels if step.pk in self.initial.get(phase+'_step_ids',[])]
+                self.fields[f'phase_{step.pk}']=forms.ChoiceField(label=f'When to run {step.name}',
+                    choices=[('','Choose when this step runs')]+[(phase,labels[phase]) for phase in phases],
+                    initial=assigned[0] if len(assigned)==1 else '')
+            self.fields['success_criteria'].help_text='Describe proof for each record and for the final result. Example: after Submit, the round advances OR the completion screen appears; after all records, save Congratulations.'
 
     def clean(self):
         data = super().clean()
@@ -52,7 +81,7 @@ class SpecificationForm(forms.Form):
             if setup & rows or setup & final or rows & final or setup | rows | final != self.step_ids:
                 raise forms.ValidationError('Allocate each workflow step exactly once to setup, per-row processing, or final checks.')
             if setup & self.read_step_ids:
-                self.add_error('setup_step_ids', 'Read text outputs must run for each input row, not during setup.')
+                self.add_error('setup_step_ids', 'Read text outputs belong to per-record processing or final checks, not setup.')
             if (setup | final) & self.input_step_ids:
                 self.add_error('finalization_step_ids' if final & self.input_step_ids else 'setup_step_ids',
                     'Steps using mapped input values must run per row; setup and final checks have no current input.')
@@ -62,7 +91,7 @@ class SpecificationForm(forms.Form):
 
     def decisions(self):
         return {key:list(value.values_list('pk',flat=True)) if key.endswith('_step_ids') else value
-                for key,value in self.cleaned_data.items() if key != 'resolve_questions'}
+                for key,value in self.cleaned_data.items() if key != 'resolve_questions' and not key.startswith('phase_')}
 
 
 def decision_form_data(decisions):

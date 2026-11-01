@@ -1,2 +1,2 @@
 {% extends 'base.html' %}{% block title %}Build with Muse · {{ project.name }}{% endblock %}
-{% block content %}<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a><h1>Build with Muse</h1><p>Clarify your saved workflow, review proposed changes, and confirm the specification. Robot generation comes in Phase 4.</p>{% include 'muse_builder/_build_workspace.html' %}{% endblock %}
+{% block content %}<a href="{% url 'project-detail' project.pk %}">← {{ project.name }}</a><p class="eyebrow">Robot builder</p><h1>Build with Muse</h1><p>Describe the work, review your plan, then generate a draft robot. Preparing and editing the plan is free; API requests are clearly labelled.</p>{% include 'muse_builder/_guided_workspace.html' %}{% endblock %}
