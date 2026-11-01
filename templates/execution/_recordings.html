@@ -1,0 +1,14 @@
+<section aria-label="Run recording">
+<h3>Browser recording</h3>
+{% if recordings %}
+{% for recording in recordings %}
+<details><summary>Watch recording{% if recordings|length > 1 %} · {{ recording.label }}{% endif %}</summary>
+<video controls preload="none" style="width:100%;max-height:65vh" aria-label="{{ recording.label }}"><source src="{{ recording.url }}" type="video/webm">Your browser cannot play this recording. Use the download link below.</video>
+<p><a href="{{ recording.url }}?download=1">Download {{ recording.label }}</a></p></details>
+{% endfor %}
+<p class="muted">Stored locally. Recordings show the browser page and may include entered values.</p>
+{% elif recording_run.active_slot %}<p>Recordings become available after the browser closes.</p>
+{% elif recording_run.artifacts %}<p>The saved recording is unavailable on this machine.</p>
+{% elif recording_run.test_options.record_screen %}<p>No recording was saved. Check cleanup details and logs.</p>
+{% else %}<p>No recording saved. Enable “Record browser page video” before a future run.</p>{% endif %}
+</section>

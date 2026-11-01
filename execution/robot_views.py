@@ -96,8 +96,10 @@ def robot_detail(request, robot_id):
     queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[],deleted_at__isnull=True).aggregate(
         pending=Count('pk', filter=Q(processing_status='pending')), in_progress=Count('pk', filter=Q(processing_status='in_progress')),
         done=Count('pk', filter=Q(processing_status='done')))
+    from .recordings import recordings_for
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),
         'latest_build':robot.builds.first(), 'history':history, 'selected_run':run, 'metrics':run_metrics(run),
+        'recording_run':run, 'recordings':recordings_for(run) if run else [],
         'attempts':attempts, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
         'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists(),
         'max_test_rows':MAX_TEST_ROWS})
