@@ -9,6 +9,7 @@ from muse_builder import views as muse_views
 from muse_builder import build_views
 
 urlpatterns = [
+    path('projects/<int:project_id>/archive/', views.project_archive, name='project-archive'),
     path('projects/<int:project_id>/results/',result_views.project_results,name='project-results'),
     path('robots/<int:robot_id>/run/',robot_views.run_robot,name='robot-run'),
     path('projects/<int:project_id>/inputs/<int:input_id>/', input_views.input_detail, name='input-detail'),

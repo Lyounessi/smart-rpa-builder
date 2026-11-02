@@ -4,9 +4,13 @@ Start the app using the [local installation instructions](../README.md). Configu
 
 ## 1. Describe the project
 
+To put an old project away, open it, expand **Project actions**, and choose **Archive project and robot**. Both disappear from active lists; inputs, robot versions, results and recordings stay intact. Open **Archived projects** on the workspace to view and restore them. Finish or stop an active run before archiving. Restore an archived project before launching another run.
+
 Choose **Create project**, enter a name and description, and select Web application. Desktop automation is reserved for later. Add an **Automation brief** with the goal, global rules and success criteria when useful.
 
 Add a **Target application** with its starting URL. Each captured element also retains the URL where it was captured.
+
+The project page groups field definitions and datasets under **Input data**, with **Workflow steps** at the bottom. A single **Next action** card links to missing setup, active progress, generation or the latest results. It is a navigation suggestion; generation and execution still perform their own validation. **Project actions** contains editing, build, history and archive links.
 
 ## 2. Define inputs and load records
 

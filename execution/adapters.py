@@ -36,6 +36,10 @@ def release_claims(run, recovered=False):
 
 @transaction.atomic
 def create_run(dataset, name, build=None):
+    from projects.models import Project
+    Project.objects.filter(pk=dataset.project_id).update(updated_at=F('updated_at'))
+    if Project.objects.filter(pk=dataset.project_id, archived_at__isnull=False).exists():
+        raise ValueError('Restore the archived project before running its robot.')
     if dataset.status != 'ready':
         raise ValueError('Choose a confirmed, valid dataset.')
     # Serialize queue creation with input deletion/restoration for this dataset.

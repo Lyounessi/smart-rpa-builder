@@ -85,5 +85,13 @@ class ResultsBrowserTests(StaticLiveServerTestCase):
                 page.screenshot(path=str(folder/'refinement-results-mobile.png'),full_page=True)
                 page.get_by_role('link',name='Pending inputs',exact=True).click()
                 page.get_by_text('No pending or in-progress records.',exact=False).wait_for()
+                page.goto(self.live_server_url+reverse('project-detail',args=[project.pk]))
+                page.get_by_role('region',name='Next action').wait_for()
+                self.assertTrue(page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
+                page.screenshot(path=str(folder/'project-next-mobile.png'),full_page=True)
+                page.set_viewport_size({'width':1440,'height':1000})
+                page.get_by_text('Project actions',exact=True).click()
+                page.get_by_role('link',name='Edit project',exact=True).wait_for()
+                page.screenshot(path=str(folder/'project-next-desktop.png'),full_page=True)
             finally:
                 browser.close()

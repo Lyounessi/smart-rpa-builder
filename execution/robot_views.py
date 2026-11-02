@@ -50,7 +50,7 @@ def robot_list(request):
         errors=[], processing_status='pending',deleted_at__isnull=True).values('dataset__project_id').annotate(total=Count('pk')).values('total')
     completed = RowAttempt.objects.filter(run__dataset__project_id=OuterRef('project_id')).filter(
         Q(business_completed_at__isnull=False) | Q(outcome='OK')).values('run__dataset__project_id').annotate(total=Count('row_id', distinct=True)).values('total')
-    robots = Robot.objects.select_related('project').annotate(
+    robots = Robot.objects.filter(project__archived_at__isnull=True).select_related('project').annotate(
         latest_version=Subquery(latest_build.values('version')[:1]),
         build_status=Subquery(latest_build.values('status')[:1]),
         build_is_draft=Subquery(latest_build.values('is_draft')[:1]),
@@ -136,6 +136,8 @@ def run_robot(request,robot_id):
     else:
         block='Generate a validated draft version before running this robot.'
     active=RobotRun.objects.filter(active_slot='local').first()
+    if robot.project.archived_at:
+        block='This project is archived. Restore it from Archived projects before running its robot.'
     if active:
         block='Another execution is active. Wait for it to finish or open its progress page to stop it.'
     elif not form.fields['dataset'].queryset.exists() and not block:
