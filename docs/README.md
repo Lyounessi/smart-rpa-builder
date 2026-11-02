@@ -4,6 +4,7 @@ Start with the [project overview, local installation and API key setup](../READM
 
 ## Create an automation
 
+- [Create a project and its robot](create-project-and-robot.md): complete walkthrough from setup to generation, execution and recordings.
 - [Projects and workflow steps](workflow-editor.md): automation brief, target applications, actions and input mappings.
 - [Web inspector](web-inspector.md): capture, save and test interface elements; browser lifecycle and limits.
 - [Selector quality](inspector-selectors.md): candidate priority, XPath, changing IDs and identity evidence.

@@ -24,7 +24,7 @@ Configured stop/recovery decisions come from the frozen specification. The frame
 
 ## Results
 
-Follow live progress and cancellation at `/execution/<run-id>/`. The version page lists recent tests. Its **Outputs and timing KPIs** link opens the selected run in the Robots catalog, showing row outcomes, saved outputs, duration, average row time and business/notification completion. Test runs are labelled in history. Optional recordings may contain sensitive content and stay under local `media/runs/`.
+Follow live progress and cancellation at `/execution/<run-id>/`. The version page lists recent tests. Its **Outputs and timing KPIs** link opens the selected run in the Robots catalog, showing row outcomes, saved outputs, duration, average row time and business/notification completion. Test runs are labelled in history. Optional recordings may contain sensitive content and stay under local `media/runs/`. After browser cleanup, use **Watch recording** and **Download** on the run page or selected run in the robot history. Missing files are marked unavailable; recording stays optional and off by default.
 
 ## CLI
 

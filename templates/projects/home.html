@@ -2,6 +2,7 @@
 {% block content %}
 <p class="eyebrow">Your workspace</p>
 <h1>Build your next workflow</h1>
+<p>{% if archived %}<strong>Archived projects</strong> · <a href="{% url 'home' %}">Active projects</a>{% else %}<a href="?archived=1">Archived projects</a>{% endif %}</p>
 <p>Define the steps, connect the target applications, and prepare for element capture.</p>
 <a class="button" href="{% url 'project-create' %}" hx-get="{% url 'project-create' %}" hx-target="#editor">Create project</a>
 <div id="editor" aria-live="polite"></div>

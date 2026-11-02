@@ -12,6 +12,7 @@ class Timestamped(models.Model):
 
 
 class Project(Timestamped):
+    archived_at = models.DateTimeField(null=True, blank=True)
     class ApplicationScope(models.TextChoices):
         WEB = "web", "Web application"
         DESKTOP = "desktop", "Desktop application"

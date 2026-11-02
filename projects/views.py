@@ -11,7 +11,26 @@ from django.db.models import Count, Q
 
 @require_GET
 def home(request):
-    return render(request, "projects/home.html", {"projects": Project.objects.order_by("-updated_at")})
+    archived = request.GET.get('archived') == '1'
+    return render(request, "projects/home.html", {"projects": Project.objects.filter(archived_at__isnull=not archived).order_by("-updated_at"), 'archived':archived})
+
+
+@require_POST
+def project_archive(request, project_id):
+    from django.db import transaction
+    from django.utils import timezone
+    from execution.models import RobotRun
+    with transaction.atomic():
+        # Serialize with queue creation before checking active work.
+        from django.db.models import F
+        Project.objects.filter(pk=project_id).update(updated_at=F('updated_at'))
+        project = get_object_or_404(Project, pk=project_id)
+        restore = request.POST.get('action') == 'restore'
+        if not restore and RobotRun.objects.filter(dataset__project=project, active_slot='local').exists():
+            return HttpResponseBadRequest('Stop or finish the active robot run before archiving this project.')
+        project.archived_at = None if restore else project.archived_at or timezone.now()
+        project.save(update_fields=['archived_at', 'updated_at'])
+    return redirect('project-detail', project_id=project.pk) if restore else redirect('home')
 
 
 @require_GET
@@ -44,13 +63,14 @@ def project_edit(request, project_id=None):
 
 @require_GET
 def project_detail(request, project_id):
+    from .navigation import next_action
     project = get_object_or_404(Project, pk=project_id)
     steps = project.steps.select_related("window", "input_column").prefetch_related("element_references__element")
     datasets=project.datasets.annotate(
         pending_count=Count('rows',filter=Q(rows__processing_status='pending',rows__deleted_at__isnull=True)),
         in_progress_count=Count('rows',filter=Q(rows__processing_status='in_progress',rows__deleted_at__isnull=True)),
         treated_count=Count('rows',filter=Q(rows__processing_status='done',rows__deleted_at__isnull=True)))
-    return render(request, "projects/detail.html", {"project": project, "steps": steps,'datasets':datasets})
+    return render(request, "projects/detail.html", {"project": project, "steps": steps,'datasets':datasets, 'next_action':next_action(project)})
 
 
 @require_http_methods(['GET', 'POST'])

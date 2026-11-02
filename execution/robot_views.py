@@ -50,7 +50,7 @@ def robot_list(request):
         errors=[], processing_status='pending',deleted_at__isnull=True).values('dataset__project_id').annotate(total=Count('pk')).values('total')
     completed = RowAttempt.objects.filter(run__dataset__project_id=OuterRef('project_id')).filter(
         Q(business_completed_at__isnull=False) | Q(outcome='OK')).values('run__dataset__project_id').annotate(total=Count('row_id', distinct=True)).values('total')
-    robots = Robot.objects.select_related('project').annotate(
+    robots = Robot.objects.filter(project__archived_at__isnull=True).select_related('project').annotate(
         latest_version=Subquery(latest_build.values('version')[:1]),
         build_status=Subquery(latest_build.values('status')[:1]),
         build_is_draft=Subquery(latest_build.values('is_draft')[:1]),
@@ -96,8 +96,10 @@ def robot_detail(request, robot_id):
     queue = DatasetRow.objects.filter(dataset__project=robot.project, dataset__status='ready', errors=[],deleted_at__isnull=True).aggregate(
         pending=Count('pk', filter=Q(processing_status='pending')), in_progress=Count('pk', filter=Q(processing_status='in_progress')),
         done=Count('pk', filter=Q(processing_status='done')))
+    from .recordings import recordings_for
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),
         'latest_build':robot.builds.first(), 'history':history, 'selected_run':run, 'metrics':run_metrics(run),
+        'recording_run':run, 'recordings':recordings_for(run) if run else [],
         'attempts':attempts, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
         'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists(),
         'max_test_rows':MAX_TEST_ROWS})
@@ -134,6 +136,8 @@ def run_robot(request,robot_id):
     else:
         block='Generate a validated draft version before running this robot.'
     active=RobotRun.objects.filter(active_slot='local').first()
+    if robot.project.archived_at:
+        block='This project is archived. Restore it from Archived projects before running its robot.'
     if active:
         block='Another execution is active. Wait for it to finish or open its progress page to stop it.'
     elif not form.fields['dataset'].queryset.exists() and not block:

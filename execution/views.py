@@ -74,6 +74,7 @@ def technical_logs(request, run_id):
 
 def progress_context(run):
     from .robot_views import duration,seconds
+    from .recordings import recordings_for
     attempts=list(run.attempts.select_related('row').prefetch_related('actions').order_by('pk'))
     for attempt in attempts:
         attempt.run=run
@@ -89,7 +90,9 @@ def progress_context(run):
     elapsed=duration(seconds(run.created_at,run.finished_at or (timezone.now() if run.active_slot else None)))
     events = [explain_event(run,event) for event in run.events.order_by('-pk')[:50]]
     failure = run.events.filter(kind='action_failed').order_by('-pk').first()
-    return {'run':run,'attempts':attempts,'events':events,
+    treated=sum(item.business_completed_at is not None or item.outcome == 'OK' for item in attempts)
+    return {'run':run,'attempts':attempts,'events':events,'recordings':recordings_for(run),
+        'treated_count':treated, 'remaining_count':max(0,planned-treated) if planned is not None else len(run.unprocessed),
         'failure_summary':explain_event(run,failure).explanation if failure else '',
         'live_counts':counts,'processed_count':finished,'planned_count':planned,'elapsed':elapsed,
         'current_step':current_step,'state_label':state}

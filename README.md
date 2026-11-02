@@ -66,6 +66,8 @@ Generated Python runs with local permissions. Static validation does not replace
 
 ## Guides
 
+New here? Follow the [complete user guide: create a project and its robot](docs/create-project-and-robot.md). It includes every creation step, an RPA Challenge example, common blockers, and a ready-to-run checklist.
+
 See the [documentation index](docs/README.md) for inspection, datasets, generation, execution, results and developer guides. Keep detailed feature instructions in those files rather than expanding this quick start.
 
 ## License

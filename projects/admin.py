@@ -21,7 +21,7 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(Project)
 class ProjectAdmin(ReadOnlyAdmin):
-    list_display = ('name', 'application_scope', 'updated_at')
+    list_display = ('name', 'application_scope', 'archived_at', 'updated_at')
     search_fields = ('name', 'description')
     list_filter = ('application_scope',)
 
