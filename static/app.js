@@ -43,6 +43,14 @@ document.addEventListener('change', event => {
   if (event.target.matches('.build-plan-form [name="stop_on_nok"], .build-plan-form [name="stop_on_error"]')) updateBuildRecovery();
 });
 
+document.addEventListener('htmx:afterSettle', event => {
+  if (event.detail.target.id !== 'editor') return;
+  const heading = event.detail.target.querySelector('.editor h2');
+  if (!heading) return;
+  heading.focus({ preventScroll: true });
+  heading.scrollIntoView({ block: 'start', behavior: 'instant' });
+});
+
 let runSelectionFocus = null;
 document.addEventListener('htmx:beforeRequest', event => {
   const field = event.detail.elt;

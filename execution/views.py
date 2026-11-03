@@ -1,3 +1,5 @@
+from django.core.paginator import Paginator
+from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 from django.utils import timezone
@@ -72,14 +74,20 @@ def technical_logs(request, run_id):
     return response
 
 
-def progress_context(run):
+def progress_context(run, page_number=None):
     from .robot_views import duration,seconds
     from .recordings import recordings_for
-    attempts=list(run.attempts.select_related('row').prefetch_related('actions').order_by('pk'))
+    totals = run.attempts.aggregate(
+        ok=Count('pk', filter=Q(outcome='OK')),
+        nok=Count('pk', filter=Q(outcome='NOK')),
+        errors=Count('pk', filter=Q(outcome='ERROR')),
+        treated=Count('pk', filter=Q(business_completed_at__isnull=False) | Q(outcome='OK')),
+    )
+    attempts = Paginator(run.attempts.select_related('row').prefetch_related('actions').order_by('pk'), 25).get_page(page_number)
     for attempt in attempts:
         attempt.run=run
     explain_attempts(attempts)
-    counts={key:sum(item.outcome==key for item in attempts) for key in ['OK','NOK','ERROR']}
+    counts = {'OK': totals['ok'], 'NOK': totals['nok'], 'ERROR': totals['errors']}
     finished=sum(counts.values())
     planned=run.test_options.get('planned_rows') if run.is_test else None
     event=run.events.filter(kind__in=['step_started','step_completed','step_failed','row_started','row_finished']).order_by('-pk').first()
@@ -90,7 +98,7 @@ def progress_context(run):
     elapsed=duration(seconds(run.created_at,run.finished_at or (timezone.now() if run.active_slot else None)))
     events = [explain_event(run,event) for event in run.events.order_by('-pk')[:50]]
     failure = run.events.filter(kind='action_failed').order_by('-pk').first()
-    treated=sum(item.business_completed_at is not None or item.outcome == 'OK' for item in attempts)
+    treated = totals['treated']
     return {'run':run,'attempts':attempts,'events':events,'recordings':recordings_for(run),
         'treated_count':treated, 'remaining_count':max(0,planned-treated) if planned is not None else len(run.unprocessed),
         'failure_summary':explain_event(run,failure).explanation if failure else '',
@@ -102,7 +110,7 @@ def progress_context(run):
 def detail(request, run_id):
     run = get_object_or_404(RobotRun.objects.select_related('dataset__project'), pk=run_id)
     template = 'execution/_progress.html' if request.headers.get('HX-Request') == 'true' else 'execution/detail.html'
-    return render(request, template,progress_context(run))
+    return render(request, template,progress_context(run, request.GET.get('attempts_page')))
 
 
 @require_POST
@@ -110,5 +118,5 @@ def cancel(request, run_id):
     RobotRun.objects.filter(pk=get_object_or_404(RobotRun, pk=run_id).pk, active_slot='local').update(cancel_requested=True)
     if request.headers.get('HX-Request')=='true':
         run=get_object_or_404(RobotRun,pk=run_id)
-        return render(request,'execution/_progress.html',progress_context(run))
+        return render(request,'execution/_progress.html',progress_context(run, request.GET.get('attempts_page')))
     return redirect('run-detail', run_id=run_id)

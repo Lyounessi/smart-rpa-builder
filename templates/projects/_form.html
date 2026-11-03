@@ -1,4 +1,4 @@
-<section class="editor"><h2>{{ title }}</h2>
+<section class="editor"><h2 tabindex="-1">{{ title }}</h2>
 <form method="post" action="{{ request.path }}" hx-post="{{ request.path }}" hx-target="closest .editor" hx-swap="outerHTML">
 {% csrf_token %}{{ form.as_p }}
 <button type="submit">Save</button>

@@ -1,6 +1,6 @@
-<section id="run-progress" {% if run.active_slot %}hx-get="{% url 'run-detail' run.pk %}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
+<section id="run-progress" {% if run.active_slot %}hx-get="{% url 'run-detail' run.pk %}?attempts_page={{ attempts.number }}" hx-trigger="every 2s" hx-swap="outerHTML"{% endif %}>
 <div class="execution-heading"><div><p class="eyebrow">{% if run.is_test %}Reviewed draft · test execution{% else %}Robot execution{% endif %}</p><h2 role="status">{{ state_label }}</h2><p>{{ run.dataset.name }}{% if run.build %} · Version {{ run.build.version }}{% endif %}</p></div>
-{% if run.active_slot %}<form method="post" action="{% url 'run-cancel' run.pk %}" hx-post="{% url 'run-cancel' run.pk %}" hx-target="#run-progress" hx-swap="outerHTML" hx-disabled-elt="find button">{% csrf_token %}<button class="stop-run" {% if run.cancel_requested %}disabled{% endif %}>{% if run.cancel_requested %}Stopping…{% else %}Stop execution{% endif %}</button></form>{% endif %}</div>
+{% if run.active_slot %}<form method="post" action="{% url 'run-cancel' run.pk %}?attempts_page={{ attempts.number }}" hx-post="{% url 'run-cancel' run.pk %}?attempts_page={{ attempts.number }}" hx-target="#run-progress" hx-swap="outerHTML" hx-disabled-elt="find button">{% csrf_token %}<button class="stop-run" {% if run.cancel_requested %}disabled{% endif %}>{% if run.cancel_requested %}Stopping…{% else %}Stop execution{% endif %}</button></form>{% endif %}</div>
 <div class="grid kpis execution-kpis"><article><strong>{{ elapsed }}</strong><span>Elapsed time</span></article><article><strong>{{ processed_count }}{% if planned_count %} / {{ planned_count }}{% endif %}</strong><span>Inputs processed</span></article><article><strong>{{ live_counts.OK }}</strong><span>OK</span></article><article><strong>{{ live_counts.NOK }} / {{ live_counts.ERROR }}</strong><span>NOK / Errors</span></article></div>
 <div class="grid kpis"><article><strong>{{ treated_count }}</strong><span>Confirmed treatments</span></article><article><strong>{{ remaining_count }}</strong><span>Selected inputs without confirmed treatment</span></article></div>
 {% if planned_count %}<progress class="execution-progress" value="{{ processed_count }}" max="{{ planned_count }}" aria-label="Inputs processed"></progress>{% endif %}
@@ -12,6 +12,11 @@
 {% if run.is_test %}<p class="muted">Maximum {{ run.test_options.row_limit }} inputs · email simulated · reviewed at {{ run.source_reviewed_at }}</p>{% endif %}<p>Unprocessed in this run: {{ run.unprocessed|length }}</p>
 {% for error in run.cleanup_errors %}<p>{{ error }}</p>{% endfor %}
 <div class="table-scroll"><table><thead><tr><th>Input record</th><th>Queue state</th><th>Outcome</th><th>Message</th><th>Failed step</th><th>Outputs</th></tr></thead><tbody>{% for attempt in attempts %}<tr><td>{{ attempt.row.row_number }}</td><td>{% if attempt.row.deleted_at %}Deleted{% elif attempt.row.processing_status == 'done' %}Treated{% else %}{{ attempt.row.get_processing_status_display }}{% endif %}</td><td>{{ attempt.outcome|default:'Unconfirmed' }}</td><td>{{ attempt.message }}{% if attempt.diagnostic_summary %}<p>{{ attempt.diagnostic_summary }}</p>{% endif %}</td><td>{{ attempt.failed_step }}</td><td>{% for key,value in attempt.outputs.items %}<p><strong>{{ key }}</strong>: {{ value|linebreaksbr }}</p>{% empty %}—{% endfor %}</td></tr>{% endfor %}</tbody></table></div>
+{% if attempts.has_other_pages %}<nav aria-label="Run attempt pages">
+{% if attempts.has_previous %}<a href="?attempts_page={{ attempts.previous_page_number }}#run-progress">Previous</a>{% endif %}
+Page {{ attempts.number }} of {{ attempts.paginator.num_pages }}
+{% if attempts.has_next %}<a href="?attempts_page={{ attempts.next_page_number }}#run-progress">Next</a>{% endif %}
+</nav>{% endif %}
 
 {% for attempt in attempts %}{% if attempt.business_completed_at or attempt.actions.all %}<article><h3>Input row {{ attempt.row.row_number }}</h3>
 {% if attempt.business_completed_at %}<p>Business operation completed. This row will not repeat its business operation to retry a notification.</p>{% endif %}

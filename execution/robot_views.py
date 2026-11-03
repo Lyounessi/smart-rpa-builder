@@ -82,10 +82,19 @@ def robot_detail(request, robot_id):
     history = Paginator(runs, 15).get_page(request.GET.get('history_page'))
     for entry in history:
         entry.elapsed = duration(seconds(entry.started_at, entry.finished_at or (timezone.now() if entry.active_slot and entry.state == 'running' else None)))
+    row_sizes = (10, 25, 50, 100)
+    rows_per_page = next((size for size in row_sizes if str(size) == request.GET.get('rows_per_page')), 25)
     attempts = None
     if run:
+        file_format = request.GET.get('export')
+        if file_format:
+            from .result_downloads import download_results, output_records
+
+            records = run.attempts.select_related('row', 'run__dataset').order_by('row__row_number', 'pk')
+            return download_results(file_format, f'run-{run.pk}-outputs.{file_format}',
+                                    output_records(records.iterator()))
         attempts = Paginator(run.attempts.select_related('row').prefetch_related('actions').annotate(
-            total_attempts=Count('row__rowattempt')).order_by('row__row_number'), 25).get_page(request.GET.get('rows_page'))
+            total_attempts=Count('row__rowattempt')).order_by('row__row_number', 'pk'), rows_per_page).get_page(request.GET.get('rows_page'))
         for attempt in attempts:
             attempt.cells = [attempt.input_snapshot.get(key, '') if attempt.input_snapshot is not None else 'Not recorded'
                              for key in run.dataset.headers]
@@ -100,7 +109,7 @@ def robot_detail(request, robot_id):
     return render(request, 'execution/robot_detail.html', {'robot':robot, 'builds':Paginator(robot.builds.all(), 10).get_page(request.GET.get('builds_page')),
         'latest_build':robot.builds.first(), 'history':history, 'selected_run':run, 'metrics':run_metrics(run),
         'recording_run':run, 'recordings':recordings_for(run) if run else [],
-        'attempts':attempts, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
+        'attempts':attempts, 'row_sizes':row_sizes, 'rows_per_page':rows_per_page, 'queue':queue,'active_execution':RobotRun.objects.filter(active_slot='local').first(),
         'has_runnable_version':robot.builds.filter(is_draft=True,status='validated',specification_snapshot__isnull=False).exists(),
         'max_test_rows':MAX_TEST_ROWS})
 
