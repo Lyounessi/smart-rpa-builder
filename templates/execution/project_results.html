@@ -9,6 +9,8 @@
 <div class="results-filter-actions"><button>Filter results</button> <a href="{% url 'project-results' project.pk %}">Clear filters</a></div></form>
 <p class="helptext">Dates use {{ results_timezone }}. Treated records are filtered by confirmed treatment time; unconfirmed attempts use their attempt time. Missing historical treatment times are not invented.</p>
 <p><strong>{{ page.paginator.count }}</strong> matching attempt{{ page.paginator.count|pluralize }}. Repeated attempts remain separate. Deleted inputs keep their execution history.</p>
+<p><a href="?{{ filter_query }}&amp;export=csv">Download outputs CSV</a> ·
+<a href="?{{ filter_query }}&amp;export=xlsx">Download outputs XLSX</a></p>
 {% for attempt in page %}<article class="result-card">
 <div class="result-heading"><h2>Record {{ attempt.row.row_number }} · {{ attempt.run.dataset.name }}</h2><span class="run-state {% if attempt.is_treated %}state-ready{% endif %}">{% if attempt.is_treated %}Treated{% else %}Processing unconfirmed{% endif %}</span></div>
 <p>{% if attempt.is_treated %}Treated at <strong>{{ attempt.treatment_at|date:'Y-m-d H:i:s'|default:'Not recorded' }}</strong>{% else %}Attempted at {{ attempt.filter_at|date:'Y-m-d H:i:s' }}{% endif %} · {{ attempt.elapsed }} · Version {{ attempt.run.build.version|default:'Not recorded' }} · Outcome {{ attempt.outcome|default:'Interrupted / in progress' }}</p>

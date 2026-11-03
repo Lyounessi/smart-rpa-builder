@@ -3,6 +3,7 @@ from django import forms
 from django.core.paginator import Paginator
 from django.db.models import Case, When, DateTimeField, Q
 from django.db.models.functions import Coalesce
+from django.http import HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET
@@ -11,6 +12,7 @@ from projects.models import Project
 from .models import RobotRun, RobotBuild, RowAttempt
 from .robot_views import duration, seconds
 from .views import explain_attempts
+from .result_downloads import download_results, output_records
 
 
 class ResultRunChoice(forms.ModelChoiceField):
@@ -68,7 +70,14 @@ def project_results(request,project_id):
         if data.get('date_to'): attempts=attempts.filter(filter_at__date__lte=data['date_to'])
     else:
         attempts=attempts.none()
-    page=Paginator(attempts.order_by('-filter_at','-pk'),25).get_page(request.GET.get('page'))
+    attempts = attempts.order_by('-filter_at', '-pk')
+    file_format = request.GET.get('export')
+    if file_format:
+        if not form.is_valid():
+            return HttpResponseBadRequest('Correct the result filters before downloading.')
+        return download_results(file_format, f'project-{project.pk}-outputs.{file_format}',
+                                output_records(attempts.iterator()))
+    page=Paginator(attempts,25).get_page(request.GET.get('page'))
     records=list(page.object_list)
     explain_attempts(records)
     for attempt in records:
@@ -77,5 +86,6 @@ def project_results(request,project_id):
     page.object_list=records
     query=request.GET.copy()
     query.pop('page',None)
+    query.pop('export',None)
     return render(request,'execution/project_results.html',{'project':project,'form':form,'page':page,
         'filter_query':query.urlencode(),'selected_status':selected_status,'results_timezone':timezone.get_current_timezone_name()})
